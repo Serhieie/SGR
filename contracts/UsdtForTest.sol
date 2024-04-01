@@ -12,5 +12,4 @@ contract UsdtForTest is ERC20, Ownable {
     {
         _mint(initialOwner, 1000000000 * 10 ** decimals()); 
     }
-
 }

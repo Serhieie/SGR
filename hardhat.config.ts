@@ -1,24 +1,27 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-chai-matchers";
-import { config as dotenvConfig } from "dotenv";
-dotenvConfig();
+import "@nomicfoundation/hardhat-verify";
+import "dotenv/config";
 
-const PRIVATE_KEY_1 = process.env.PRIVATE_KEY;
-const PROJECT = process.env.PROJECT_ID;
-
-if (!PRIVATE_KEY_1) {
-  throw new Error("PRIVATE_KEY_1 is not defined in the environment variables.");
-}
+const { ETHERSCAN_API_KEY, MAINNET_RPC_URL, SEPOLIA_RPC_URL, PRIVATE_KEY } = process.env;
 
 const config: HardhatUserConfig = {
   solidity: "0.8.24",
+
+  etherscan: {
+    apiKey: ETHERSCAN_API_KEY,
+  },
+
   networks: {
     sepolia: {
-      url: `https://sepolia.infura.io/v3/${PROJECT}`,
+      url: SEPOLIA_RPC_URL ? SEPOLIA_RPC_URL : "",
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
       chainId: 11155111,
-      accounts: [PRIVATE_KEY_1],
     },
+  },
+  sourcify: {
+    enabled: true,
   },
 };
 
