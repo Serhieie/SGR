@@ -25,7 +25,7 @@ describe("TokenSale", function () {
     it("Should allow buying tokens with uUSDT", async function () {
       const { buyer1, shop, usdt, owner } = await loadFixture(deploy);
       const usdtForSend = ethers.parseUnits("10", 18);
-      const initialTokenBalance = await shop.tokenBalance();
+      // const initialTokenBalance = await shop.tokenBalance();
       const priceEthInUsd = await shop.priceEthInUSD();
       const tokensToBuy =
         (BigInt(usdtForSend) * BigInt(10 ** 18)) /
@@ -39,8 +39,10 @@ describe("TokenSale", function () {
 
       expect(await usdt.balanceOf(buyer1.address)).to.equal(0);
       expect(await usdt.balanceOf(shop.target)).to.equal(usdtForSend);
-      expect(await shop.tokenBalanceOf(buyer1.address)).to.equal(tokensToBuy);
-      expect(await shop.tokenBalance()).to.equal(initialTokenBalance - tokensToBuy);
+
+      // expect(await shop.tokenBalanceOf(buyer1.address)).to.equal(tokensToBuy);
+      // expect(await shop.tokenBalance()).to.equal(initialTokenBalance - tokensToBuy);
+      expect(await shop.vesting(buyer1.address)).to.equal(tokensToBuy);
       await expect(tx)
         .to.emit(shop, "TokensBought")
         .withArgs(buyer1.address, tokensToBuy);
@@ -158,9 +160,10 @@ describe("TokenSale", function () {
       };
       const tx = await buyer1.sendTransaction(txData);
       await tx.wait();
-      expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(
-        tokenAmount * BigInt(10000)
-      );
+      // expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(
+      //   tokenAmount * BigInt(10000)
+      // );
+      expect(await shop.vesting(buyer1.address)).to.equal(tokenAmount * BigInt(10000));
       expect(() => tx).to.changeEtherBalance(shop, tokenAmount);
       expect(tx)
         .to.emit(shop, "TokensBought")
@@ -270,6 +273,35 @@ describe("TokenSale", function () {
         .to.emit(shop, "SaleDurationUpd");
     });
 
+    it("should allow claiming tokens after vesting period ends", async function () {
+      const { shop, buyer1 } = await loadFixture(deploy);
+      const vestingEndTime = 1735689599;
+      const tokenAmount = ethers.parseEther("1");
+      const txData = {
+        value: tokenAmount,
+        to: shop.target,
+      };
+      const tx = await buyer1.sendTransaction(txData);
+      await tx.wait();
+      await ethers.provider.send("evm_setNextBlockTimestamp", [vestingEndTime + 1]);
+      await ethers.provider.send("evm_mine");
+      await shop.connect(buyer1).claimTokens();
+      expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(
+        tokenAmount * BigInt(10000)
+      );
+    });
+
+    it("should prevent claiming tokens after vesting period ends if no tokens in vesting", async function () {
+      const { shop, buyer1 } = await loadFixture(deploy);
+      const vestingEndTime = 1735689599;
+      await ethers.provider.send("evm_setNextBlockTimestamp", [vestingEndTime + 1]);
+      await ethers.provider.send("evm_mine");
+      await expect(shop.connect(buyer1).claimTokens()).to.be.revertedWith(
+        "You have no tokens to claim"
+      );
+      expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(0);
+    });
+
     it("Should allow the owner to mint tokens", async function () {
       const { shop } = await loadFixture(deploy);
       const initialTokenBalance = await shop.tokenBalance();
@@ -298,6 +330,7 @@ describe("TokenSale", function () {
 
     it("Should allow the owner to withdraw Ether", async function () {
       const { shop, owner, buyer1 } = await loadFixture(deploy);
+      const vestingEndTime = 1735689599;
       const initialBalance = await ethers.provider.getBalance(owner.address);
       const tokenAmount = ethers.parseEther("1");
       const txData = {
@@ -305,9 +338,24 @@ describe("TokenSale", function () {
         to: shop.target,
       };
       await buyer1.sendTransaction(txData);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [vestingEndTime + 1]);
+      await ethers.provider.send("evm_mine");
       await shop.withdrawEther();
       const finalBalance = await ethers.provider.getBalance(owner.address);
       expect(finalBalance).to.be.gt(initialBalance);
+    });
+
+    it("Should not allow owner to withdraw Ether before vesting end", async function () {
+      const { shop, buyer1 } = await loadFixture(deploy);
+      const tokenAmount = ethers.parseEther("1");
+      const txData = {
+        value: tokenAmount,
+        to: shop.target,
+      };
+      await buyer1.sendTransaction(txData);
+      await expect(shop.withdrawEther()).to.be.revertedWith(
+        "You cant to take ether before vesting"
+      );
     });
   });
 });
