@@ -18,8 +18,8 @@ contract TokenSale is Ownable {
     uint256 public totalSupply = 100000000 * 10 ** 18;
     uint256 public tokenPrice = 100000000000000; 
     uint256 public constant vestingEndTime = 1735689599; //31 dec 2024
-    uint256 public saleStartTime = 1710435599;// 14 of march 17:00
-    bool public saleStarted = false; //imagine that contract was deployed before 14 of march )
+    uint256 public saleStartTime = 1710435599;// 14 of mrch 17:00
+    bool public saleStarted = false; //that contract was deployed before 14 of mrch :)
     uint public saleDuration =  5 weeks;
     uint256 public tokensForSale = totalSupply / 2;
     uint256 public  priceEthInUSD; 
@@ -36,6 +36,7 @@ contract TokenSale is Ownable {
         stablecoin = IERC20(address(0x1531BC5dE10618c511349f8007C08966E45Ce8ef));
         token = new SolarGreen(msg.sender, address(this));
 
+     
         ethPriceForTest();
         startSale();
         //for deploy
@@ -123,7 +124,7 @@ contract TokenSale is Ownable {
     }
 
     //check all requires
-    function requiresForBuying(uint amount, bool eth) internal view returns(uint256){ 
+    function requiresForBuying(uint amount, bool eth) internal view  returns(uint256){ 
         require(!isAccBlacklisted(msg.sender), "Sender is blacklisted");
         require(isSaleActive(), "Sale is not active");
         //for deploy
@@ -151,7 +152,7 @@ contract TokenSale is Ownable {
         successPushase(tokensToBuy);
     }
 
-    // Recieve ether and convert it to the Solar Green
+    // Recieve ether and convert it to the SG
     receive() external payable aucIsOpenAndNotBlacklisted {
         uint256 tokensToBuy = requiresForBuying(msg.value, true);
         successPushase(tokensToBuy);

@@ -25,23 +25,23 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
          _grantRole(BLACKLISTER, _shop);
     }
 
-    function grantBlRole(bytes32 role, address account)external onlyRole(DEFAULT_ADMIN_ROLE){
-        grantRole(role, account);
+    function grantBlRole(address account)external onlyRole(DEFAULT_ADMIN_ROLE){
+        grantRole(BLACKLISTER, account);
     }
-     function revokeBlRole(bytes32 role, address account)external onlyRole(DEFAULT_ADMIN_ROLE){
-        revokeRole(role, account);
+     function revokeBlRole(address account)external onlyRole(DEFAULT_ADMIN_ROLE){
+        revokeRole(BLACKLISTER, account);
     }
 
     function addToBlacklist(address account) public onlyRole(BLACKLISTER){
         require(hasRole(BLACKLISTER, _msgSender()), "SolarGreen: You role must be admin to add to blacklist");
-        require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to blacklist");
+        require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to bl");
         _blacklist[account] = true;
         emit AddedToBlacklist(account);
     }
 
     function removeFromBlacklist(address account) public onlyRole(BLACKLISTER){
         require(hasRole(BLACKLISTER, _msgSender()), "SolarGreen: You role must be admin to remove from blacklist ");
-        require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to blacklist");
+        require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to bl");
         _blacklist[account] = false;
         emit RemovedFromBlacklist(account);
     }

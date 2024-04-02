@@ -45,19 +45,19 @@ describe("SolarGreen", function () {
   it("allow owner add and remove role BLACKLISTER ", async function () {
     const { owner, token, buyer1 } = await loadFixture(deploy);
     const blacklisterRole = await token.BLACKLISTER();
-    await token.connect(owner).grantBlRole(blacklisterRole, buyer1.address);
+    await token.connect(owner).grantBlRole(buyer1.address);
     expect(await token.hasRole(blacklisterRole, buyer1.address)).to.equal(true);
-    await token.connect(owner).revokeBlRole(blacklisterRole, buyer1.address);
+    await token.connect(owner).revokeBlRole(buyer1.address);
     expect(await token.hasRole(blacklisterRole, buyer1.address)).to.equal(false);
   });
 
   it("should not allow add to bl BLACKLISTERs ", async function () {
     const { owner, token, buyer1, buyer2 } = await loadFixture(deploy);
     const blacklisterRole = await token.BLACKLISTER();
-    await token.connect(owner).grantBlRole(blacklisterRole, buyer1.address);
-    await token.connect(owner).grantBlRole(blacklisterRole, buyer2.address);
+    await token.connect(owner).grantBlRole(buyer1.address);
+    await token.connect(owner).grantBlRole(buyer2.address);
     await expect(token.connect(buyer1).addToBlacklist(buyer2.address)).to.be.revertedWith(
-      "SolarGreen: Cannot add another blacklister to blacklist"
+      "SolarGreen: Cannot add another blacklister to bl"
     );
   });
 

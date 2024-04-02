@@ -6,9 +6,9 @@ import "dotenv/config";
 // npx hardhat run scripts/deploy.js --network localhost
 
 //sale
-// 0xEE8DA8f1Ab01FcB2880315d6fF1192f95C978dA4
+// 0xdf74c6c855a1a2826348c3fcd699583196f1f130
 //token
-// 0x38C15b113cE4A0e0ba01FEBF6929B3229a42C398
+// 0x244f171ecb6bb6ab4a57042a5e4a1e75a9dc7e77
 
 async function main() {
   // const privateKey = process.env.PRIVATE_KEY;
