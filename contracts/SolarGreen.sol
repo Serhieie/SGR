@@ -13,13 +13,16 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
 
     event AddedToBlacklist(address indexed account);
     event RemovedFromBlacklist(address indexed account);
+    event SuccessBurn(address from , uint256 newPrice);
+    event SuccessMint(address to ,uint256 newDuration);
     
-    constructor(address initialOwner)           
+    constructor(address initialOwner, address _shop)           
         ERC20("Solar Green", "SGR")
     {       
-        _mint(initialOwner, 100000000 * 10 ** decimals());
+        _mint(_shop, 100000000 * 10 ** decimals());
         _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
         _grantRole(BLACKLISTER, initialOwner);
+         _grantRole(BLACKLISTER, _shop);
     }
 
     function grantBlRole(bytes32 role, address account)external onlyRole(DEFAULT_ADMIN_ROLE){
@@ -49,10 +52,13 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
 
     function mint(address to, uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE){
         _mint(to, amount);
+            emit SuccessMint(to, amount);
     }
 
-    function burn(address from, uint256 amount) public  onlyRole(DEFAULT_ADMIN_ROLE){
+    function burnTokensFrom(address from, uint256 amount) public   onlyRole(DEFAULT_ADMIN_ROLE){
+        require(balanceOf(from) >= amount, "Burning more than possible");
         _burn(from, amount);
+         emit SuccessBurn(from, amount);
     }
 
     

@@ -3,12 +3,12 @@ import { SolarGreen } from "../typechain-types/contracts/SolarGreen";
 
 describe("SolarGreen", function () {
   async function deploy() {
-    const [owner, buyer1, buyer2] = await ethers.getSigners();
-    const Token = await ethers.getContractFactory("SolarGreen", owner);
-    const token: SolarGreen = await Token.deploy(owner.address);
+    const [owner, buyer1, buyer2, shop] = await ethers.getSigners();
+    const TokenFactory = await ethers.getContractFactory("SolarGreen", owner);
+    const token: SolarGreen = await TokenFactory.deploy(owner.address, shop.address);
     await token.waitForDeployment();
 
-    return { owner, buyer1, buyer2, token };
+    return { owner, buyer1, buyer2, token, shop };
   }
 
   it("should deploy with initial supply", async function () {
@@ -25,11 +25,21 @@ describe("SolarGreen", function () {
   });
 
   it("should allow burn tokens", async function () {
-    const { owner, token } = await loadFixture(deploy);
+    const { owner, token, shop } = await loadFixture(deploy);
+    const initialBalance = await token.balanceOf(shop.address);
     const amountToBurn = ethers.parseEther("100");
-    const currentSupply = (await token.balanceOf(owner.address)) - amountToBurn;
-    await token.connect(owner)["burn(address,uint256)"](owner.address, amountToBurn);
-    expect(await token.balanceOf(owner.address)).to.equal(currentSupply);
+    await token.connect(owner).burnTokensFrom(shop.address, amountToBurn);
+    expect(await token.balanceOf(shop.address)).to.equal(initialBalance - amountToBurn);
+  });
+
+  it("Should preventd to burn tokens if amountForBurning bigger than balance", async function () {
+    const { shop, token } = await loadFixture(deploy);
+    const initialTokenBalance = await token.balanceOf(shop.address);
+    const amountToBurn = initialTokenBalance + BigInt(1);
+    await expect(token.burnTokensFrom(shop.address, amountToBurn)).to.be.revertedWith(
+      "Burning more than possible"
+    );
+    expect(await token.balanceOf(shop.address)).to.equal(initialTokenBalance);
   });
 
   it("allow owner add and remove role BLACKLISTER ", async function () {
@@ -58,12 +68,4 @@ describe("SolarGreen", function () {
     await token.connect(owner).removeFromBlacklist(buyer1);
     expect(await token.connect(owner).isBlackListed(buyer1)).to.equal(false);
   });
-
-  // const date1 = new Date("2024-03-14T16:59:59Z");
-  // const timestamp1 = date1.getTime() / 1000;
-  // console.log(timestamp1);
-
-  // const date2 = new Date("2024-12-31T23:59:59Z");
-  // const timestamp2 = date2.getTime() / 1000;
-  // console.log(timestamp2);
 });

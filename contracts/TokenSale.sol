@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./SolarGreen.sol";
@@ -28,17 +27,14 @@ contract TokenSale is Ownable {
     event TokensBought(address indexed buyer, uint256 amount);
     event TokenPriceUpd(uint256 newPrice);
     event SaleDurationUpd(uint256 newDuration);
-    event SuccessBurn(address from , uint256 newPrice);
-    event SuccessMint(address to ,uint256 newDuration);
 
 
     constructor() Ownable(msg.sender) {
         ethFeed = AggregatorV3Interface(
             0x694AA1769357215DE4FAC081bf1f309aDC325306
         );
-        stablecoin = ERC20(address(0x1531BC5dE10618c511349f8007C08966E45Ce8ef));
-        token = new SolarGreen(address(this));
-
+        stablecoin = IERC20(address(0x1531BC5dE10618c511349f8007C08966E45Ce8ef));
+        token = new SolarGreen(msg.sender, address(this));
 
         ethPriceForTest();
         startSale();
@@ -98,16 +94,6 @@ contract TokenSale is Ownable {
             emit SaleDurationUpd(saleDuration);
     }
 
-    function mintTokens(address to, uint256 amount) external onlyOwner {
-        token.mint(to, amount);
-        emit SuccessMint(to, amount);
-    }
-
-    function burnTokens(address from, uint256 amount) external onlyOwner {
-        require(token.balanceOf(from) >= amount, "Burning more than possible");
-        token.burn(from, amount);
-         emit SuccessBurn(from, amount);
-    }
     
     function tokenBalance() public view returns (uint) {
         return token.balanceOf(address(this));
