@@ -11,9 +11,9 @@ import "dotenv/config";
 // 0x244f171ecb6bb6ab4a57042a5e4a1e75a9dc7e77
 
 async function main() {
-  // const privateKey = process.env.PRIVATE_KEY;
-  // const wallet = new ethers.Wallet(privateKey, ethers.provider);
-  const [wallet] = await ethers.getSigners();
+  const privateKey = process.env.PRIVATE_KEY;
+  const wallet = new ethers.Wallet(privateKey, ethers.provider);
+  // const [wallet] = await ethers.getSigners();
   const TokenSale = await ethers.getContractFactory("TokenSale", wallet);
   const shop = await TokenSale.deploy();
   await shop.waitForDeployment();

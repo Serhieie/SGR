@@ -25,11 +25,17 @@ describe("TokenSale", function () {
       const { owner, shop } = await loadFixture(deploy);
       expect(await shop.owner()).to.equal(owner.address);
     });
+
+    it("Should deploy test contract with some balance for test", async function () {
+      const { usdt } = await loadFixture(deploy);
+      const expectedSupply = ethers.parseEther("1000000000");
+      expect(await usdt.totalSupply()).to.equal(expectedSupply);
+    });
   });
-  2;
+
   describe("Functionality", function () {
     it("Should allow buying tokens with uUSDT", async function () {
-      const { buyer1, shop, usdt, owner } = await loadFixture(deploy);
+      const { buyer1, shop, usdt } = await loadFixture(deploy);
       const usdtForSend = ethers.parseUnits("10", 18);
       // const initialTokenBalance = await shop.tokenBalance();
       const priceEthInUsd = await shop.priceEthInUSD();
@@ -63,7 +69,7 @@ describe("TokenSale", function () {
 
       await expect(
         shop.connect(buyer1).convertUsdToTokens(usdtForSend)
-      ).to.be.revertedWith("Sale is not active");
+      ).to.be.revertedWith("TokenSale: Sale is not active");
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
       expect(await shop.tokenBalance()).to.equal(initialTokenBalance);
@@ -80,7 +86,7 @@ describe("TokenSale", function () {
 
       await expect(
         shop.connect(buyer1).convertUsdToTokens(usdtForSend)
-      ).to.be.revertedWith("Sender is blacklisted");
+      ).to.be.revertedWith("TokenSale: Sender is blacklisted");
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
       expect(await shop.tokenBalance()).to.equal(initialTokenBalance);
@@ -97,7 +103,7 @@ describe("TokenSale", function () {
 
       await expect(
         shop.connect(buyer1).convertUsdToTokens(usdtForSend)
-      ).to.be.revertedWith("Sold out!");
+      ).to.be.revertedWith("TokenSale: Sold out!");
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
       expect(await shop.tokenBalance()).to.equal(initialTokenBalance);
@@ -114,7 +120,7 @@ describe("TokenSale", function () {
       await usdt.approve(shop.target, usdtForSend);
 
       await expect(shop.convertUsdToTokens(usdtForSend)).to.be.revertedWith(
-        "No more tokens available"
+        "TokenSale: No more tokens available"
       );
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
@@ -131,7 +137,7 @@ describe("TokenSale", function () {
 
       await expect(
         shop.connect(buyer1).convertUsdToTokens(usdtForSend)
-      ).to.be.revertedWith("Allowed 50k tokens per wallet");
+      ).to.be.revertedWith("TokenSale: Allowed 50k tokens per wallet");
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
       expect(await shop.tokenBalance()).to.equal(initialTokenBalance);
@@ -149,7 +155,7 @@ describe("TokenSale", function () {
 
       await expect(
         shop.connect(buyer1).convertUsdToTokens(usdtForSend)
-      ).to.be.revertedWith("Allowed 50k tokens per wallet");
+      ).to.be.revertedWith("TokenSale: Allowed 50k tokens per wallet");
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend + usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
     });
@@ -164,9 +170,6 @@ describe("TokenSale", function () {
       };
       const tx = await buyer1.sendTransaction(txData);
       await tx.wait();
-      // expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(
-      //   tokenAmount * BigInt(10000)
-      // );
       expect(await shop.vesting(buyer1.address)).to.equal(tokenAmount * BigInt(10000));
       expect(() => tx).to.changeEtherBalance(shop, tokenAmount);
       expect(tx)
@@ -184,7 +187,7 @@ describe("TokenSale", function () {
         to: shop.target,
       };
       await expect(buyer1.sendTransaction(txData)).to.be.revertedWith(
-        "Sale is not active"
+        "TokenSale: Sale is not active"
       );
       expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(initialBalance);
     });
@@ -200,7 +203,7 @@ describe("TokenSale", function () {
       };
       expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(initialBalance);
       await expect(buyer1.sendTransaction(txData)).to.be.revertedWith(
-        "Sender is blacklisted"
+        "TokenSale: Sender is blacklisted"
       );
     });
 
@@ -213,7 +216,9 @@ describe("TokenSale", function () {
         value: tokenAmount,
         to: shop.target,
       };
-      await expect(buyer1.sendTransaction(txData)).to.be.revertedWith("Sold out!");
+      await expect(buyer1.sendTransaction(txData)).to.be.revertedWith(
+        "TokenSale: Sold out!"
+      );
       expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(initialBalance);
     });
 
@@ -229,7 +234,7 @@ describe("TokenSale", function () {
       };
 
       await expect(buyer1.sendTransaction(txData)).to.be.revertedWith(
-        "No more tokens available"
+        "TokenSale: No more tokens available"
       );
       expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(initialBalance);
     });
@@ -244,7 +249,7 @@ describe("TokenSale", function () {
       };
 
       await expect(buyer1.sendTransaction(txData)).to.be.revertedWith(
-        "Allowed 50k tokens per wallet"
+        "TokenSale: Allowed 50k tokens per wallet"
       );
       expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(initialBalance);
     });
@@ -262,7 +267,7 @@ describe("TokenSale", function () {
       await sgr.burnTokensFrom(buyer1, tokenBalance);
 
       await expect(buyer1.sendTransaction(txData)).to.be.revertedWith(
-        "Allowed 50k tokens per wallet"
+        "TokenSale: Allowed 50k tokens per wallet"
       );
       expect(await shop.tokenBalanceOf(buyer1.address)).to.equal(0);
     });
@@ -274,6 +279,16 @@ describe("TokenSale", function () {
       await shop.updateSaleDuration(newDurationWeeks);
       expect(await shop.saleDuration())
         .to.equal(newDurationWeeks * oneWeakInS)
+        .to.emit(shop, "SaleDurationUpd");
+    });
+
+    it("Should allow the owner to update tokens for sale", async function () {
+      const { shop } = await loadFixture(deploy);
+      const initialTokensForSale = await shop.tokensForSale();
+      const upFor = BigInt(1000);
+      await shop.updateTokensForSale(upFor);
+      expect(await shop.tokensForSale())
+        .to.equal(initialTokensForSale + upFor * BigInt(10 ** 18))
         .to.emit(shop, "SaleDurationUpd");
     });
 
@@ -301,7 +316,7 @@ describe("TokenSale", function () {
       await ethers.provider.send("evm_setNextBlockTimestamp", [vestingEndTime + 1]);
       await ethers.provider.send("evm_mine");
       await expect(shop.connect(buyer1).claimTokens()).to.be.revertedWith(
-        "You have no tokens to claim"
+        "TokenSale: You have no tokens to claim"
       );
       expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(0);
     });
@@ -332,7 +347,7 @@ describe("TokenSale", function () {
       };
       await buyer1.sendTransaction(txData);
       await expect(shop.withdrawEther()).to.be.revertedWith(
-        "You cant to take ether before vesting"
+        "TokenSale: You cant to take ether before vesting"
       );
     });
 
@@ -342,6 +357,13 @@ describe("TokenSale", function () {
       expect(await shop.isAccBlacklisted(buyer1)).to.equal(true);
       await shop.removeAccFromBlacklist(buyer1);
       expect(await shop.isAccBlacklisted(buyer1)).to.equal(false);
+    });
+
+    it("should allow the owner to change vesting time", async function () {
+      const { shop } = await loadFixture(deploy);
+      const vestingTime = await shop.vestingEndTime();
+      await shop.updateVestingTime(vestingTime + BigInt(1));
+      expect(await shop.vestingEndTime()).to.be.equal(vestingTime + BigInt(1));
     });
   });
 });

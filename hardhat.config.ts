@@ -4,10 +4,18 @@ import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-verify";
 import "dotenv/config";
 
-const { ETHERSCAN_API_KEY, MAINNET_RPC_URL, SEPOLIA_RPC_URL, PRIVATE_KEY } = process.env;
+const { ETHERSCAN_API_KEY, SEPOLIA_RPC_URL, PRIVATE_KEY } = process.env;
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.24",
+  solidity: {
+    version: "0.8.24",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  },
 
   etherscan: {
     apiKey: ETHERSCAN_API_KEY,

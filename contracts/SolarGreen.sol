@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
 
     bytes32 public constant BLACKLISTER = keccak256("BLACKLISTER");
+    address public owner;
 
     mapping(address => bool) private _blacklist;
 
@@ -16,24 +17,29 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
     event SuccessBurn(address from , uint256 newPrice);
     event SuccessMint(address to ,uint256 newDuration);
     
-    constructor(address initialOwner, address _shop)           
+    constructor(address initialOwner, address _shop)          
         ERC20("Solar Green", "SGR")
     {       
+        require(initialOwner != address(0), "SolarGreen: Invalid owner address");
         _mint(_shop, 100000000 * 10 ** decimals());
         _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
         _grantRole(BLACKLISTER, initialOwner);
          _grantRole(BLACKLISTER, _shop);
+         owner = initialOwner;
     }
 
-    function grantBlRole(address account)external onlyRole(DEFAULT_ADMIN_ROLE){
+    function grantBlRole( address account)external onlyRole(DEFAULT_ADMIN_ROLE){
+        require(!hasRole(DEFAULT_ADMIN_ROLE, account), "SolarGreen: You must to be admin to grand roles");
         grantRole(BLACKLISTER, account);
     }
-     function revokeBlRole(address account)external onlyRole(DEFAULT_ADMIN_ROLE){
+     function revokeBlRole( address account)external onlyRole(DEFAULT_ADMIN_ROLE){
+        require(!hasRole(DEFAULT_ADMIN_ROLE, account), "SolarGreen: You must to be admin to grand roles");
         revokeRole(BLACKLISTER, account);
     }
 
     function addToBlacklist(address account) public onlyRole(BLACKLISTER){
         require(hasRole(BLACKLISTER, _msgSender()), "SolarGreen: You role must be admin to add to blacklist");
+        require(!hasRole(DEFAULT_ADMIN_ROLE, account), "SolarGreen: Cant do this with admin");
         require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to bl");
         _blacklist[account] = true;
         emit AddedToBlacklist(account);
@@ -51,12 +57,14 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
     }
 
     function mint(address to, uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE){
+        require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "SolarGreen: You role must be admin for this action!");
         _mint(to, amount);
             emit SuccessMint(to, amount);
     }
 
     function burnTokensFrom(address from, uint256 amount) public   onlyRole(DEFAULT_ADMIN_ROLE){
-        require(balanceOf(from) >= amount, "Burning more than possible");
+        require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "SolarGreen: You role must be admin for this action!");
+        require(balanceOf(from) >= amount, "SolarGreen: Burning more than possible");
         _burn(from, amount);
          emit SuccessBurn(from, amount);
     }

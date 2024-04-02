@@ -15,13 +15,13 @@ contract TokenSale is Ownable {
 
     SolarGreen public token;
     IERC20 public stablecoin;
-    uint256 public totalSupply = 100000000 * 10 ** 18;
+    uint256 public totalSupply;
     uint256 public tokenPrice = 100000000000000; 
-    uint256 public constant vestingEndTime = 1735689599; //31 dec 2024
+    uint256 public vestingEndTime = 1735689599; //31 dec 2024
     uint256 public saleStartTime = 1710435599;// 14 of mrch 17:00
     bool public saleStarted = false; //that contract was deployed before 14 of mrch :)
     uint public saleDuration =  5 weeks;
-    uint256 public tokensForSale = totalSupply / 2;
+    uint256 public tokensForSale;
     uint256 public  priceEthInUSD; 
 
     event TokensBought(address indexed buyer, uint256 amount);
@@ -35,8 +35,9 @@ contract TokenSale is Ownable {
         );
         stablecoin = IERC20(address(0x1531BC5dE10618c511349f8007C08966E45Ce8ef));
         token = new SolarGreen(msg.sender, address(this));
-
-     
+        totalSupply = token.totalSupply();
+        tokensForSale = totalSupply / 2;
+        
         ethPriceForTest();
         startSale();
         //for deploy
@@ -54,21 +55,21 @@ contract TokenSale is Ownable {
 
 
     modifier aucIsOpenAndNotBlacklisted() {
-        require(!isAccBlacklisted(msg.sender), "Sender is blacklisted");
+        require(!isAccBlacklisted(msg.sender), "TokenSale: Sender is blacklisted");
         require(block.timestamp >= saleStartTime &&
-        block.timestamp <= saleStartTime + saleDuration, "Sale is not active");
+        block.timestamp <= saleStartTime + saleDuration, "TokenSale: Sale is not active");
         _;
     }
 
     function startSale() public onlyOwner {
-        require(block.timestamp >= saleStartTime, "Sale has not started yet");
+        require(block.timestamp >= saleStartTime, "TokenSale: Sale has not started yet");
         saleStarted = true;
     }
 
 
     function updateTokensForSale(uint256 _newTokensForSale) external onlyOwner {
         require(tokensForSale + _newTokensForSale * 
-        10 ** 18 <= totalSupply, "Not enough tokens");
+        10 ** 18 <= totalSupply, "TokenSale: Not enough tokens");
         tokensForSale += _newTokensForSale * 10 ** 18;
     }
 
@@ -95,29 +96,30 @@ contract TokenSale is Ownable {
             emit SaleDurationUpd(saleDuration);
     }
 
+    function updateVestingTime(uint256 newDate) external onlyOwner{
+        require(block.timestamp <= vestingEndTime, "TokenSale: You cant to change vesting time after its finish");
+        vestingEndTime = newDate;
+    }
+
     
     function tokenBalance() public view returns (uint) {
         return token.balanceOf(address(this));
     }
 
-    function stablecoinBalance(address _address) public view returns (uint) {
-        return stablecoin.balanceOf(_address);
-    }
+    //for deploy
+    // function getLastEthPriceInUsd() public returns (uint) {
+    // (
+    //     /* uint80 roundID */,
+    //     int answer,
+    //     /*uint startedAt*/,
+    //     /*uint timeStamp*/,
+    //     /*uint80 answeredInRound*/
+    // ) = ethFeed.latestRoundData();
 
-
-    function getLastEthPriceInUsd() public returns (uint) {
-    (
-        /* uint80 roundID */,
-        int answer,
-        /*uint startedAt*/,
-        /*uint timeStamp*/,
-        /*uint80 answeredInRound*/
-    ) = ethFeed.latestRoundData();
-
-    require(answer >= 0, "Invalid Ethereum price");
-    priceEthInUSD =  (uint256(answer) / 10 ** 8); 
-    return priceEthInUSD;
-    }
+    // require(answer >= 0, "Invalid Ethereum price");
+    // priceEthInUSD =  (uint256(answer) / 10 ** 8); 
+    // return priceEthInUSD;
+    // }
 
     function isSaleActive() internal view returns (bool) {
         return block.timestamp >= saleStartTime && block.timestamp <= saleStartTime + saleDuration;
@@ -125,17 +127,17 @@ contract TokenSale is Ownable {
 
     //check all requires
     function requiresForBuying(uint amount, bool eth) internal view  returns(uint256){ 
-        require(!isAccBlacklisted(msg.sender), "Sender is blacklisted");
-        require(isSaleActive(), "Sale is not active");
+        require(!isAccBlacklisted(msg.sender), "TokenSale: Sender is blacklisted");
+        require(isSaleActive(), "TokenSale: Sale is not active");
         //for deploy
         // getLastEthPriceInUsd();
         uint256 tokensToBuy = eth ? (amount / tokenPrice) * 10 ** 18 :
         (amount  * 10 ** 18) / (priceEthInUSD  * tokenPrice);
-        require(tokensToBuy > 0, "not enough funds!");
-        require(tokenBalance() > tokensToBuy,  "No more tokens available");
-        require(tokensForSale >= tokensToBuy,  "Sold out!");
+        require(tokensToBuy > 0, "TokenSale: not enough funds!");
+        require(tokenBalance() > tokensToBuy,  "TokenSale: No more tokens available");
+        require(tokensForSale >= tokensToBuy,  "TokenSale: Sold out!");
         require(vesting[msg.sender] + tokensToBuy <= 50000 * 10 ** 18,
-        "Allowed 50k tokens per wallet");
+        "TokenSale: Allowed 50k tokens per wallet");
         return tokensToBuy;
     }
 
@@ -161,16 +163,16 @@ contract TokenSale is Ownable {
 
 
     function claimTokens() external{
-        require(block.timestamp > vestingEndTime, "Tokens are still vesting");
+        require(block.timestamp > vestingEndTime, "TokenSale: Tokens are still vesting");
         uint256 amount = vesting[msg.sender];
-        require(amount > 0, "You have no tokens to claim");
+        require(amount > 0, "TokenSale: You have no tokens to claim");
         token.transfer(msg.sender, amount);
         vesting[msg.sender] = 0;
     }
 
 
     function withdrawEther() external onlyOwner {
-        require(block.timestamp > vestingEndTime, "You cant to take ether before vesting");
+        require(block.timestamp > vestingEndTime, "TokenSale: You cant to take ether before vesting");
         payable(owner()).transfer(address(this).balance);
     }
 
