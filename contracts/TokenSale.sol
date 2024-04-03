@@ -12,11 +12,11 @@ contract TokenSale is Ownable {
     AggregatorV3Interface internal ethFeed;
     mapping(address => uint256) public vesting;
     //token price in usd  0.0001 * ethPriceInUsdt
-
+    // (0.42 * 10^18) / 3432 / 10 ^ 18  * 10^18
     SolarGreen public token;
     IERC20 public stablecoin;
     uint256 public limitPerWallet = 50000;
-    uint256 public tokenPrice = 100000000000000; 
+    uint256 public tokenPrice; 
     uint256 public vestingEndTime = 1735682399; //31 dec 2024 23:59:59
     uint256 public saleStartTime = 1710428399;// 14 of mrch 17:00
     bool public saleStarted = false; //that contract was deployed before 14 of mrch :)
@@ -27,11 +27,12 @@ contract TokenSale is Ownable {
     event TokenPriceUpd(uint256 newPrice);
     event SaleDurationUpd(uint256 newDuration);
 
-    constructor(address _priceFeed, address _usdt) Ownable(msg.sender) {
+    constructor(address _priceFeed, address _usdt, uint256 _tokenPrice) Ownable(msg.sender) {
         ethFeed = AggregatorV3Interface(_priceFeed);
         stablecoin = IERC20(_usdt);
         token = new SolarGreen(msg.sender, address(this));
         tokensForSale = getTokenSupply() / 2;
+        tokenPrice = _tokenPrice;
         
         // started  at 14 of mrch 17:00
         startSale();
@@ -110,14 +111,20 @@ contract TokenSale is Ownable {
     return uint(answer);
     }
 
+    function updateTokenPrice() internal returns(uint256){
+        tokenPrice  = tokenPrice / getLastEthPriceInUsd() / 10 ^ 18  * 10^18;
+        return tokenPrice;
+    }
+
     function isSaleActive() internal view returns (bool) {
         return block.timestamp >= saleStartTime && block.timestamp <= saleStartTime + saleDuration;
     }
 
     function calculateTokenAmount(bool eth, uint amount) internal view returns(uint256){
         //token amount calculation for eth or usdt
-         return  eth ? (amount / tokenPrice) * 10 ** 18 :
-        (amount  * 10 ** 18) / (getLastEthPriceInUsd()  * tokenPrice);
+        uint tokenPriceWei = tokenPrice / getLastEthPriceInUsd();
+         return  eth ? (amount / tokenPriceWei) * 10 ** 18 :
+        (amount  * 10 ** 18) / (getLastEthPriceInUsd()  * tokenPriceWei);
     }
 
     //check all requires

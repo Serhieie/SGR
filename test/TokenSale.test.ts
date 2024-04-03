@@ -5,6 +5,7 @@ import { SolarGreen } from "../typechain-types";
 
 describe("TokenSale", function () {
   async function deploy() {
+    const tokenPriceInUsd = ethers.parseUnits("0.42", 18);
     const [owner, buyer1, buyer2] = await ethers.getSigners();
     const TShopFactory = await ethers.getContractFactory("TokenSale", owner);
 
@@ -18,7 +19,11 @@ describe("TokenSale", function () {
     const usdt: UsdtForTest = await UsdtFactroy.deploy(owner);
     await usdt.waitForDeployment();
 
-    const shop: TokenSale = await TShopFactory.deploy(eth.target, usdt.target);
+    const shop: TokenSale = await TShopFactory.deploy(
+      eth.target,
+      usdt.target,
+      tokenPriceInUsd
+    );
     await shop.waitForDeployment();
 
     const sgrAddress = await shop.token();
@@ -55,9 +60,9 @@ describe("TokenSale", function () {
       expect(await usdt.totalSupply()).to.equal(expectedSupply);
     });
 
-    it("Token price must be 0.0001 eth", async function () {
+    it("Token price must be 0.42 usd", async function () {
       const { shop } = await loadFixture(deploy);
-      const tokenPrice = ethers.parseEther("0.0001");
+      const tokenPrice = ethers.parseUnits("0.42", 18);
       expect(await shop.tokenPrice()).to.equal(tokenPrice);
     });
 
@@ -77,10 +82,13 @@ describe("TokenSale", function () {
     it("Should allow buying tokens with uUSDT", async function () {
       const { buyer1, shop, usdt } = await loadFixture(deploy);
       const usdtForSend = ethers.parseUnits("10", 18);
+      const tokenPriceInUsd = await shop.tokenPrice();
+
       const priceEthInUsd = BigInt(3630);
+      const tokenPrice = tokenPriceInUsd / priceEthInUsd;
       const tokensToBuy =
-        (BigInt(usdtForSend) * BigInt(10 ** 18)) /
-        (priceEthInUsd * BigInt(100000000000000));
+        (BigInt(usdtForSend) * BigInt(10 ** 18)) / (priceEthInUsd * tokenPrice);
+
       await usdt.transfer(buyer1.address, usdtForSend);
       await usdt.connect(buyer1).approve(shop.target, usdtForSend);
       const tx = await shop.connect(buyer1).convertUsdToTokens(usdtForSend);
@@ -196,24 +204,28 @@ describe("TokenSale", function () {
       expect(await usdt.balanceOf(shop.target)).to.equal(usdtForSend);
 
       //check vesting
+      const tokenPriceInUsd = await shop.tokenPrice();
       const priceEthInUsd = BigInt(3630);
+      const tokenPrice = tokenPriceInUsd / priceEthInUsd;
       const tokensToBuy =
-        (BigInt(usdtForSend) * BigInt(10 ** 18)) /
-        (priceEthInUsd * BigInt(100000000000000));
+        (BigInt(usdtForSend) * BigInt(10 ** 18)) / (priceEthInUsd * tokenPrice);
       expect(await shop.vesting(buyer1.address)).to.equal(tokensToBuy);
     });
 
-    it("Should allow buying tokens", async function () {
+    it("Should allow to buy tokens", async function () {
       const { buyer1, shop } = await loadFixture(deploy);
-      const tokenAmount = ethers.parseEther("1");
-
+      const sendedEth = ethers.parseEther("1");
+      const tokenPriceInUsd = await shop.tokenPrice();
+      const priceEthInUsd = BigInt(3630);
+      const tokenPrice = tokenPriceInUsd / priceEthInUsd;
+      const tokenAmount = (sendedEth / tokenPrice) * BigInt(10 ** 18);
       const txData = {
-        value: tokenAmount,
+        value: sendedEth,
         to: shop.target,
       };
       const tx = await buyer1.sendTransaction(txData);
       await tx.wait();
-      expect(await shop.vesting(buyer1.address)).to.equal(tokenAmount * BigInt(10000));
+      expect(await shop.vesting(buyer1.address)).to.equal(tokenAmount);
       expect(() => tx).to.changeEtherBalance(shop, tokenAmount);
       expect(tx)
         .to.emit(shop, "TokensBought")
@@ -356,9 +368,14 @@ describe("TokenSale", function () {
     it("should allow claiming tokens after vesting period ends", async function () {
       const { shop, buyer1 } = await loadFixture(deploy);
       const vestingEndTime = 1735689599;
-      const tokenAmount = ethers.parseEther("1");
+      const sendedEth = ethers.parseEther("1");
+      const tokenPriceInUsd = await shop.tokenPrice();
+      const priceEthInUsd = BigInt(3630);
+      const tokenPrice = tokenPriceInUsd / priceEthInUsd;
+      const tokenAmount = (sendedEth / tokenPrice) * BigInt(10 ** 18);
+
       const txData = {
-        value: tokenAmount,
+        value: sendedEth,
         to: shop.target,
       };
       const tx = await buyer1.sendTransaction(txData);
@@ -366,9 +383,7 @@ describe("TokenSale", function () {
       await ethers.provider.send("evm_setNextBlockTimestamp", [vestingEndTime + 1]);
       await ethers.provider.send("evm_mine");
       await shop.connect(buyer1).claimTokens();
-      expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(
-        tokenAmount * BigInt(10000)
-      );
+      expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(tokenAmount);
     });
 
     it("should prevent claiming tokens after vesting period ends if no tokens in vesting", async function () {

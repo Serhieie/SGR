@@ -21,7 +21,8 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
         ERC20("Solar Green", "SGR")
     {       
         require(initialOwner != address(0), "SolarGreen: Invalid address");
-        _mint(_shop, 100000000 * 10 ** decimals());
+        _mint(_shop, 50000000 * 10 ** decimals());
+        _mint(address(this), 50000000 * 10 ** decimals());
         _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
         _grantRole(BLACKLISTER, initialOwner);
          _grantRole(BLACKLISTER, _shop);
