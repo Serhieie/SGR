@@ -1,18 +1,25 @@
 import { loadFixture, ethers, expect } from "./setup";
 import { TokenSale } from "../typechain-types/contracts/TokenSale";
-import { UsdtForTest } from "../typechain-types/contracts/UsdtForTest";
+import { UsdtForTest } from "../typechain-types/contracts/test/UsdtForTest";
 import { SolarGreen } from "../typechain-types";
 
 describe("TokenSale", function () {
   async function deploy() {
     const [owner, buyer1, buyer2] = await ethers.getSigners();
     const TShopFactory = await ethers.getContractFactory("TokenSale", owner);
-    const shop: TokenSale = await TShopFactory.deploy();
-    await shop.waitForDeployment();
 
+    //eth price 3630 usd
+    const mockV3Aggregator = await ethers.getContractFactory("MockV3Aggregator");
+    const eth = await mockV3Aggregator.deploy(18, 363000000000);
+    await eth.waitForDeployment();
+
+    //staiblecoin
     const UsdtFactroy = await ethers.getContractFactory("UsdtForTest", owner);
     const usdt: UsdtForTest = await UsdtFactroy.deploy(owner);
     await usdt.waitForDeployment();
+
+    const shop: TokenSale = await TShopFactory.deploy(eth.target, usdt.target);
+    await shop.waitForDeployment();
 
     const sgrAddress = await shop.token();
     const sgr: SolarGreen = await ethers.getContractAt("SolarGreen", sgrAddress, owner);
@@ -26,10 +33,43 @@ describe("TokenSale", function () {
       expect(await shop.owner()).to.equal(owner.address);
     });
 
+    it("Should set start time 14 of mrch 17:00", async function () {
+      const { shop } = await loadFixture(deploy);
+      const unixTimestamp = await shop.saleStartTime();
+      const expectedDate = new Date(Number(unixTimestamp) * 1000);
+      const expectedDateString = expectedDate.toLocaleString();
+      expect(expectedDateString).to.equal("14.03.2024, 16:59:59");
+    });
+
+    it("Should set vesting end time at 31 dec 2024 23:59:59", async function () {
+      const { shop } = await loadFixture(deploy);
+      const unixTimestamp = await shop.vestingEndTime();
+      const expectedDate = new Date(Number(unixTimestamp) * 1000);
+      const expectedDateString = expectedDate.toLocaleString();
+      expect(expectedDateString).to.equal("31.12.2024, 23:59:59");
+    });
+
     it("Should deploy test contract with some balance for test", async function () {
       const { usdt } = await loadFixture(deploy);
       const expectedSupply = ethers.parseEther("1000000000");
       expect(await usdt.totalSupply()).to.equal(expectedSupply);
+    });
+
+    it("Token price must be 0.0001 eth", async function () {
+      const { shop } = await loadFixture(deploy);
+      const tokenPrice = ethers.parseEther("0.0001");
+      expect(await shop.tokenPrice()).to.equal(tokenPrice);
+    });
+
+    it("Limit per wallet is 50 000", async function () {
+      const { shop } = await loadFixture(deploy);
+      expect(await shop.limitPerWallet()).to.equal(50000);
+    });
+
+    it("Tokens for sale is 50 millions", async function () {
+      const { shop } = await loadFixture(deploy);
+      const tokensForSale = BigInt(50000000) * BigInt(10 ** 18);
+      expect(await shop.tokensForSale()).to.equal(tokensForSale);
     });
   });
 
@@ -37,16 +77,13 @@ describe("TokenSale", function () {
     it("Should allow buying tokens with uUSDT", async function () {
       const { buyer1, shop, usdt } = await loadFixture(deploy);
       const usdtForSend = ethers.parseUnits("10", 18);
-      // const initialTokenBalance = await shop.tokenBalance();
-      const priceEthInUsd = await shop.priceEthInUSD();
+      const priceEthInUsd = BigInt(3630);
       const tokensToBuy =
         (BigInt(usdtForSend) * BigInt(10 ** 18)) /
         (priceEthInUsd * BigInt(100000000000000));
-
       await usdt.transfer(buyer1.address, usdtForSend);
-      await usdt.approve(shop.target, usdtForSend);
+      await usdt.connect(buyer1).approve(shop.target, usdtForSend);
       const tx = await shop.connect(buyer1).convertUsdToTokens(usdtForSend);
-      await usdt.connect(buyer1).transfer(shop.target, usdtForSend);
       await tx.wait();
 
       expect(await usdt.balanceOf(buyer1.address)).to.equal(0);
@@ -94,7 +131,7 @@ describe("TokenSale", function () {
 
     it("Should prevent buying tokens with uUSDT if not enough aproved to sell tokens", async function () {
       const { buyer1, shop, usdt, owner } = await loadFixture(deploy);
-      await shop.resetTokensToSale();
+      await shop.updateTokensForSale(0);
       const usdtForSend = ethers.parseUnits("10", 18);
       const initialTokenBalance = await shop.tokenBalance();
 
@@ -128,7 +165,7 @@ describe("TokenSale", function () {
     });
 
     it("Should prevent buying tokens with uUSDT if reached personal limit 50k", async function () {
-      const { buyer1, shop, usdt, owner } = await loadFixture(deploy);
+      const { buyer1, shop, usdt } = await loadFixture(deploy);
       const usdtForSend = ethers.parseUnits("1000000", 18);
       const initialTokenBalance = await shop.tokenBalance();
 
@@ -144,20 +181,26 @@ describe("TokenSale", function () {
     });
 
     it("Should prevent buying tokens with uUSDT if reached personal limit 50k and send it somewhere", async function () {
-      const { buyer1, shop, usdt, sgr } = await loadFixture(deploy);
+      const { buyer1, shop, usdt } = await loadFixture(deploy);
       const usdtForSend = ethers.parseUnits("18000", 18);
 
       await usdt.transfer(buyer1.address, usdtForSend);
+      await usdt.connect(buyer1).approve(shop.target, usdtForSend);
       await shop.connect(buyer1).convertUsdToTokens(usdtForSend);
-      const buyer1Tokens = await shop.tokenBalanceOf(buyer1.address);
-      await sgr.burnTokensFrom(buyer1.address, buyer1Tokens);
       await usdt.transfer(buyer1.address, usdtForSend);
-
+      await usdt.connect(buyer1).approve(shop.target, usdtForSend);
       await expect(
         shop.connect(buyer1).convertUsdToTokens(usdtForSend)
       ).to.be.revertedWith("TokenSale: Allowed 50k tokens per wallet");
-      expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend + usdtForSend);
-      expect(await usdt.balanceOf(shop.target)).to.equal(0);
+      expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
+      expect(await usdt.balanceOf(shop.target)).to.equal(usdtForSend);
+
+      //check vesting
+      const priceEthInUsd = BigInt(3630);
+      const tokensToBuy =
+        (BigInt(usdtForSend) * BigInt(10 ** 18)) /
+        (priceEthInUsd * BigInt(100000000000000));
+      expect(await shop.vesting(buyer1.address)).to.equal(tokensToBuy);
     });
 
     it("Should allow buying tokens", async function () {
@@ -210,7 +253,7 @@ describe("TokenSale", function () {
     it("Should prevent buying tokens if not enough aproved to sell tokens", async function () {
       const { shop, buyer1 } = await loadFixture(deploy);
       const initialBalance = await shop.tokenBalanceOf(buyer1.address);
-      await shop.resetTokensToSale();
+      await shop.updateTokensForSale(0);
       const tokenAmount = ethers.parseEther("1");
       const txData = {
         value: tokenAmount,
@@ -282,6 +325,15 @@ describe("TokenSale", function () {
         .to.emit(shop, "SaleDurationUpd");
     });
 
+    it("Should allow the owner to update sale duration to 0", async function () {
+      const { shop } = await loadFixture(deploy);
+      const newDurationWeeks = 0;
+      await shop.updateSaleDuration(newDurationWeeks);
+      expect(await shop.saleDuration())
+        .to.equal(newDurationWeeks)
+        .to.emit(shop, "SaleDurationUpd");
+    });
+
     it("Should allow the owner to update tokens for sale", async function () {
       const { shop } = await loadFixture(deploy);
       const initialTokensForSale = await shop.tokensForSale();
@@ -289,6 +341,15 @@ describe("TokenSale", function () {
       await shop.updateTokensForSale(upFor);
       expect(await shop.tokensForSale())
         .to.equal(initialTokensForSale + upFor * BigInt(10 ** 18))
+        .to.emit(shop, "SaleDurationUpd");
+    });
+
+    it("Should allow the owner to update tokens for sale to 0 value", async function () {
+      const { shop } = await loadFixture(deploy);
+      const upFor = 0;
+      await shop.updateTokensForSale(upFor);
+      expect(await shop.tokensForSale())
+        .to.equal(upFor)
         .to.emit(shop, "SaleDurationUpd");
     });
 
@@ -364,6 +425,14 @@ describe("TokenSale", function () {
       const vestingTime = await shop.vestingEndTime();
       await shop.updateVestingTime(vestingTime + BigInt(1));
       expect(await shop.vestingEndTime()).to.be.equal(vestingTime + BigInt(1));
+    });
+
+    it("should not allow users to change vesting time", async function () {
+      const { shop, buyer1 } = await loadFixture(deploy);
+      const vestingTime = await shop.vestingEndTime();
+      await expect(shop.connect(buyer1).updateVestingTime(vestingTime + BigInt(1))).to.be
+        .reverted;
+      expect(await shop.vestingEndTime()).to.be.equal(vestingTime);
     });
   });
 });

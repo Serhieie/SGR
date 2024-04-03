@@ -113,7 +113,7 @@ describe("SolarGreen", function () {
     await token.connect(owner).grantBlRole(buyer1.address);
     await token.connect(owner).grantBlRole(buyer2.address);
     await expect(token.connect(buyer1).addToBlacklist(buyer2.address)).to.be.revertedWith(
-      "SolarGreen: Cannot add another blacklister to bl"
+      "SolarGreen: Cannot add another blacklister to blacklist"
     );
   });
 

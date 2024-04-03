@@ -15,43 +15,27 @@ contract TokenSale is Ownable {
 
     SolarGreen public token;
     IERC20 public stablecoin;
-    uint256 public totalSupply;
+    uint256 public limitPerWallet = 50000;
     uint256 public tokenPrice = 100000000000000; 
-    uint256 public vestingEndTime = 1735689599; //31 dec 2024
-    uint256 public saleStartTime = 1710435599;// 14 of mrch 17:00
+    uint256 public vestingEndTime = 1735682399; //31 dec 2024 23:59:59
+    uint256 public saleStartTime = 1710428399;// 14 of mrch 17:00
     bool public saleStarted = false; //that contract was deployed before 14 of mrch :)
     uint public saleDuration =  5 weeks;
     uint256 public tokensForSale;
-    uint256 public  priceEthInUSD; 
 
     event TokensBought(address indexed buyer, uint256 amount);
     event TokenPriceUpd(uint256 newPrice);
     event SaleDurationUpd(uint256 newDuration);
 
-
-    constructor() Ownable(msg.sender) {
-        ethFeed = AggregatorV3Interface(
-            0x694AA1769357215DE4FAC081bf1f309aDC325306
-        );
-        stablecoin = IERC20(address(0x1531BC5dE10618c511349f8007C08966E45Ce8ef));
+    constructor(address _priceFeed, address _usdt) Ownable(msg.sender) {
+        ethFeed = AggregatorV3Interface(_priceFeed);
+        stablecoin = IERC20(_usdt);
         token = new SolarGreen(msg.sender, address(this));
-        totalSupply = token.totalSupply();
-        tokensForSale = totalSupply / 2;
+        tokensForSale = getTokenSupply() / 2;
         
-        ethPriceForTest();
+        // started  at 14 of mrch 17:00
         startSale();
-        //for deploy
-        // getLastEthPriceInUsd();
     }
-
-    //test foo =======
-    function ethPriceForTest() public {
-        priceEthInUSD = 3630;
-    }
-    function resetTokensToSale() external onlyOwner {
-        tokensForSale = 0;
-    }
-   // ===================
 
 
     modifier aucIsOpenAndNotBlacklisted() {
@@ -66,22 +50,24 @@ contract TokenSale is Ownable {
         saleStarted = true;
     }
 
-
     function updateTokensForSale(uint256 _newTokensForSale) external onlyOwner {
         require(tokensForSale + _newTokensForSale * 
-        10 ** 18 <= totalSupply, "TokenSale: Not enough tokens");
-        tokensForSale += _newTokensForSale * 10 ** 18;
+        10 ** 18 <= getTokenSupply(), "TokenSale: Not enough tokens");
+        if(_newTokensForSale <=0) {
+             tokensForSale = 0;
+        } else tokensForSale += _newTokensForSale * 10 ** 18;
     }
+
 
     function tokenBalanceOf(address _address) public view  returns(uint) {
         return token.balanceOf(_address);
     }
     
-    function addAccToBlacklist(address account) external onlyOwner {
+    function addAccToBlacklist(address account) external {
         token.addToBlacklist(account);
     }
 
-    function removeAccFromBlacklist(address account) external onlyOwner {
+    function removeAccFromBlacklist(address account) external {
         token.removeFromBlacklist(account);
     }
 
@@ -97,50 +83,56 @@ contract TokenSale is Ownable {
     }
 
     function updateVestingTime(uint256 newDate) external onlyOwner{
-        require(block.timestamp <= vestingEndTime, "TokenSale: You cant to change vesting time after its finish");
+        require(block.timestamp <= vestingEndTime,
+         "TokenSale: You cant to change vesting time after its finish");
+         require(msg.sender == owner(), "TokenSale: Only owner available to change vesting time");
         vestingEndTime = newDate;
     }
 
-    
     function tokenBalance() public view returns (uint) {
         return token.balanceOf(address(this));
     }
+    function getTokenSupply() internal view returns (uint) {
+        return token.totalSupply();
+    }
 
-    //for deploy
-    // function getLastEthPriceInUsd() public returns (uint) {
-    // (
-    //     /* uint80 roundID */,
-    //     int answer,
-    //     /*uint startedAt*/,
-    //     /*uint timeStamp*/,
-    //     /*uint80 answeredInRound*/
-    // ) = ethFeed.latestRoundData();
-
-    // require(answer >= 0, "Invalid Ethereum price");
-    // priceEthInUSD =  (uint256(answer) / 10 ** 8); 
-    // return priceEthInUSD;
-    // }
+    function getLastEthPriceInUsd() internal view returns (uint) {
+    (
+        /* uint80 roundID */,
+        int answer,
+        /*uint startedAt*/,
+        /*uint timeStamp*/,
+        /*uint80 answeredInRound*/
+    ) = ethFeed.latestRoundData();
+    require(answer >= 0, "Invalid Ethereum price");
+    //replacemant of operation * 10^10 / 10^18
+    answer =  answer / 10 ** 8; 
+    return uint(answer);
+    }
 
     function isSaleActive() internal view returns (bool) {
         return block.timestamp >= saleStartTime && block.timestamp <= saleStartTime + saleDuration;
     }
 
+    function calculateTokenAmount(bool eth, uint amount) internal view returns(uint256){
+        //token amount calculation for eth or usdt
+         return  eth ? (amount / tokenPrice) * 10 ** 18 :
+        (amount  * 10 ** 18) / (getLastEthPriceInUsd()  * tokenPrice);
+    }
+
     //check all requires
-    function requiresForBuying(uint amount, bool eth) internal view  returns(uint256){ 
+    function requiresForBuying( uint256 tokensToBuy) internal view returns(uint256){ 
         require(!isAccBlacklisted(msg.sender), "TokenSale: Sender is blacklisted");
         require(isSaleActive(), "TokenSale: Sale is not active");
-        //for deploy
-        // getLastEthPriceInUsd();
-        uint256 tokensToBuy = eth ? (amount / tokenPrice) * 10 ** 18 :
-        (amount  * 10 ** 18) / (priceEthInUSD  * tokenPrice);
         require(tokensToBuy > 0, "TokenSale: not enough funds!");
         require(tokenBalance() > tokensToBuy,  "TokenSale: No more tokens available");
         require(tokensForSale >= tokensToBuy,  "TokenSale: Sold out!");
-        require(vesting[msg.sender] + tokensToBuy <= 50000 * 10 ** 18,
+        require(vesting[msg.sender] + tokensToBuy <= limitPerWallet * 10 ** 18,
         "TokenSale: Allowed 50k tokens per wallet");
         return tokensToBuy;
     }
 
+    //success purshase operations
     function successPushase(uint256 tokensToBuy) internal{
         vesting[msg.sender] += tokensToBuy;
         tokensForSale -= tokensToBuy;   
@@ -148,21 +140,27 @@ contract TokenSale is Ownable {
     }
 
     function convertUsdToTokens(uint256 amount) external aucIsOpenAndNotBlacklisted{
-        uint256 tokensToBuy = requiresForBuying(amount, false);
-        //for deploy
-        // stablecoin.transferFrom(msg.sender, address(this), amount);
+        //calc amount of tokens
+        uint256 tokensToBuy = calculateTokenAmount(false, amount);
+        //check operation requires
+        requiresForBuying(tokensToBuy);
+        stablecoin.transferFrom(msg.sender, address(this), amount);
+         //operations with succes transaction
         successPushase(tokensToBuy);
     }
 
-    // Recieve ether and convert it to the SG
+    // Recieve ether and convert ETH to SG
     receive() external payable aucIsOpenAndNotBlacklisted {
-        uint256 tokensToBuy = requiresForBuying(msg.value, true);
+        //calc amount of tokens
+        uint256 tokensToBuy = calculateTokenAmount(true, msg.value);
+        //check operation requires
+        requiresForBuying(tokensToBuy);
+        //operations with succes transaction
         successPushase(tokensToBuy);
     }
 
-
-
-    function claimTokens() external{
+    //claim tokens after vesting period 
+    function claimTokens() external {
         require(block.timestamp > vestingEndTime, "TokenSale: Tokens are still vesting");
         uint256 amount = vesting[msg.sender];
         require(amount > 0, "TokenSale: You have no tokens to claim");
@@ -170,9 +168,10 @@ contract TokenSale is Ownable {
         vesting[msg.sender] = 0;
     }
 
-
+    //withdraw ether after vesting period
     function withdrawEther() external onlyOwner {
-        require(block.timestamp > vestingEndTime, "TokenSale: You cant to take ether before vesting");
+        require(block.timestamp > vestingEndTime,
+         "TokenSale: You cant to take ether before vesting");
         payable(owner()).transfer(address(this).balance);
     }
 

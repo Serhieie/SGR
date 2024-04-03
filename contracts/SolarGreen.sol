@@ -20,7 +20,7 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
     constructor(address initialOwner, address _shop)          
         ERC20("Solar Green", "SGR")
     {       
-        require(initialOwner != address(0), "SolarGreen: Invalid owner address");
+        require(initialOwner != address(0), "SolarGreen: Invalid address");
         _mint(_shop, 100000000 * 10 ** decimals());
         _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
         _grantRole(BLACKLISTER, initialOwner);
@@ -40,14 +40,14 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
     function addToBlacklist(address account) public onlyRole(BLACKLISTER){
         require(hasRole(BLACKLISTER, _msgSender()), "SolarGreen: You role must be admin to add to blacklist");
         require(!hasRole(DEFAULT_ADMIN_ROLE, account), "SolarGreen: Cant do this with admin");
-        require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to bl");
+        require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to blacklist");
         _blacklist[account] = true;
         emit AddedToBlacklist(account);
     }
 
     function removeFromBlacklist(address account) public onlyRole(BLACKLISTER){
         require(hasRole(BLACKLISTER, _msgSender()), "SolarGreen: You role must be admin to remove from blacklist ");
-        require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to bl");
+        require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to blacklist");
         _blacklist[account] = false;
         emit RemovedFromBlacklist(account);
     }
