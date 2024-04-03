@@ -11,12 +11,12 @@ import "./SolarGreen.sol";
 contract TokenSale is Ownable {
     AggregatorV3Interface internal ethFeed;
     mapping(address => uint256) public vesting;
-    //token price in usd  0.0001 * ethPriceInUsdt
-    // (0.42 * 10^18) / 3432 / 10 ^ 18  * 10^18
+
     SolarGreen public token;
     IERC20 public stablecoin;
     uint256 public limitPerWallet = 50000;
-    uint256 public tokenPrice; 
+    uint256 public tokenPriceUsd;//~0.42$ in wei * 10^18
+    uint256 public tokenPriceWei; 
     uint256 public vestingEndTime = 1735682399; //31 dec 2024 23:59:59
     uint256 public saleStartTime = 1710428399;// 14 of mrch 17:00
     bool public saleStarted = false; //that contract was deployed before 14 of mrch :)
@@ -32,10 +32,11 @@ contract TokenSale is Ownable {
         stablecoin = IERC20(_usdt);
         token = new SolarGreen(msg.sender, address(this));
         tokensForSale = getTokenSupply() / 2;
-        tokenPrice = _tokenPrice;
+        tokenPriceUsd = _tokenPrice;
         
         // started  at 14 of mrch 17:00
         startSale();
+        updateTokenPrice();
     }
 
 
@@ -106,25 +107,25 @@ contract TokenSale is Ownable {
         /*uint80 answeredInRound*/
     ) = ethFeed.latestRoundData();
     require(answer >= 0, "Invalid Ethereum price");
-    //replacemant of operation * 10^10 / 10^18
+
     answer =  answer / 10 ** 8; 
     return uint(answer);
     }
 
-    function updateTokenPrice() internal returns(uint256){
-        tokenPrice  = tokenPrice / getLastEthPriceInUsd() / 10 ^ 18  * 10^18;
-        return tokenPrice;
+    function updateTokenPrice() public returns(uint256){
+        tokenPriceWei  = tokenPriceUsd / getLastEthPriceInUsd();
+        return tokenPriceUsd;
     }
 
     function isSaleActive() internal view returns (bool) {
         return block.timestamp >= saleStartTime && block.timestamp <= saleStartTime + saleDuration;
     }
 
-    function calculateTokenAmount(bool eth, uint amount) internal view returns(uint256){
+    function calculateTokenAmount(bool eth, uint amount) internal returns(uint256){
         //token amount calculation for eth or usdt
-        uint tokenPriceWei = tokenPrice / getLastEthPriceInUsd();
+        tokenPriceWei = tokenPriceUsd / getLastEthPriceInUsd();
          return  eth ? (amount / tokenPriceWei) * 10 ** 18 :
-        (amount  * 10 ** 18) / (getLastEthPriceInUsd()  * tokenPriceWei);
+        (amount  * 10 ** 18) / (getLastEthPriceInUsd()  *  tokenPriceWei);
     }
 
     //check all requires

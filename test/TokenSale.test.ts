@@ -63,7 +63,9 @@ describe("TokenSale", function () {
     it("Token price must be 0.42 usd", async function () {
       const { shop } = await loadFixture(deploy);
       const tokenPrice = ethers.parseUnits("0.42", 18);
-      expect(await shop.tokenPrice()).to.equal(tokenPrice);
+      const ad = await shop.tokenPriceWei();
+      console.log(ad);
+      expect(await shop.tokenPriceUsd()).to.equal(tokenPrice);
     });
 
     it("Limit per wallet is 50 000", async function () {
@@ -82,7 +84,7 @@ describe("TokenSale", function () {
     it("Should allow buying tokens with uUSDT", async function () {
       const { buyer1, shop, usdt } = await loadFixture(deploy);
       const usdtForSend = ethers.parseUnits("10", 18);
-      const tokenPriceInUsd = await shop.tokenPrice();
+      const tokenPriceInUsd = await shop.tokenPriceUsd();
 
       const priceEthInUsd = BigInt(3630);
       const tokenPrice = tokenPriceInUsd / priceEthInUsd;
@@ -204,7 +206,7 @@ describe("TokenSale", function () {
       expect(await usdt.balanceOf(shop.target)).to.equal(usdtForSend);
 
       //check vesting
-      const tokenPriceInUsd = await shop.tokenPrice();
+      const tokenPriceInUsd = await shop.tokenPriceUsd();
       const priceEthInUsd = BigInt(3630);
       const tokenPrice = tokenPriceInUsd / priceEthInUsd;
       const tokensToBuy =
@@ -215,7 +217,7 @@ describe("TokenSale", function () {
     it("Should allow to buy tokens", async function () {
       const { buyer1, shop } = await loadFixture(deploy);
       const sendedEth = ethers.parseEther("1");
-      const tokenPriceInUsd = await shop.tokenPrice();
+      const tokenPriceInUsd = await shop.tokenPriceUsd();
       const priceEthInUsd = BigInt(3630);
       const tokenPrice = tokenPriceInUsd / priceEthInUsd;
       const tokenAmount = (sendedEth / tokenPrice) * BigInt(10 ** 18);
@@ -369,7 +371,7 @@ describe("TokenSale", function () {
       const { shop, buyer1 } = await loadFixture(deploy);
       const vestingEndTime = 1735689599;
       const sendedEth = ethers.parseEther("1");
-      const tokenPriceInUsd = await shop.tokenPrice();
+      const tokenPriceInUsd = await shop.tokenPriceUsd();
       const priceEthInUsd = BigInt(3630);
       const tokenPrice = tokenPriceInUsd / priceEthInUsd;
       const tokenAmount = (sendedEth / tokenPrice) * BigInt(10 ** 18);
