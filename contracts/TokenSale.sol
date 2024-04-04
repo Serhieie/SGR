@@ -20,22 +20,24 @@ contract TokenSale is Ownable {
     bool public saleStarted = false; //that contract was deployed before 14 of mrch
     uint public saleDuration =  5 weeks;
     uint256 public tokensForSale;
+    address private tokenOwner;
 
     event TokensBought(address indexed buyer, uint256 amount);
     event TokenPriceUpd(uint256 newPrice);
     event SaleDurationUpd(uint256 newDuration);
 
-    constructor( address tokenOwner, address _priceFeed,
+    constructor( address _tokenOwner, address _priceFeed,
      address _usdt, uint256 _tokenPrice ) Ownable(msg.sender) {
-        require(tokenOwner != address(0), "TokenSale: tokenOwner address is invalid");
+        require(_tokenOwner != address(0), "TokenSale: tokenOwner address is invalid");
         require(_priceFeed != address(0), "TokenSale: priceFeed address is invalid");
         require(_usdt != address(0), "TokenSale: usdt address is invalid");
         require(_tokenPrice >= 0, "TokenSale: invalid token price");
         ethFeed = AggregatorV3Interface(_priceFeed);
         stablecoin = IERC20(_usdt);
-        token = new SolarGreen(msg.sender, tokenOwner, address(this));
+        token = new SolarGreen(msg.sender, _tokenOwner, address(this));
         tokensForSale = tokenSupply() / 2;
         tokenPriceUsd = _tokenPrice;
+        tokenOwner = _tokenOwner;
         startSale();
     }
 
@@ -50,6 +52,11 @@ contract TokenSale is Ownable {
      modifier onlyBlacklister() {
         require(token.hasRole(token.BLACKLISTER(), msg.sender), "TokenSale: You are not blacklister");
         require(msg.sender != address(0), "SolarGreen: Invalid address");
+        _;
+    }
+
+    modifier onlyTokenOwner() {
+        require(msg.sender == tokenOwner, "SolarGreen: You address is not tokenOwner address");
         _;
     }
 
@@ -181,10 +188,18 @@ contract TokenSale is Ownable {
     }
 
     //withdraw ether after vesting period
-    function withdrawEther() external onlyOwner {
+    function withdrawEther() external  onlyTokenOwner{
+        require(msg.sender == tokenOwner, "SolarGreen: You address is not tokenOwner address");
         require(block.timestamp > vestingEndTime,
          "TokenSale: You cant to take ether before vesting");
-        payable(owner()).transfer(address(this).balance);
+        payable(tokenOwner).transfer(address(this).balance);
     }
+
+        function withdrawUSDT() external  onlyTokenOwner{
+        require(msg.sender == tokenOwner, "SolarGreen: You address is not tokenOwner address");
+        require(block.timestamp > vestingEndTime,
+         "TokenSale: You cant to take usdt before vesting");
+         stablecoin.transfer(tokenOwner, stablecoin.balanceOf(address(this)));
+        }
 
 }

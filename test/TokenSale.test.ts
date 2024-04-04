@@ -390,9 +390,9 @@ describe("TokenSale", function () {
     });
 
     it("Should allow the owner to withdraw Ether", async function () {
-      const { shop, owner, buyer1 } = await loadFixture(deploy);
+      const { shop, buyer1, tokenOwner } = await loadFixture(deploy);
       const vestingEndTime = 1735689599;
-      const initialBalance = await ethers.provider.getBalance(owner.address);
+      const initialBalance = await ethers.provider.getBalance(tokenOwner.address);
       const tokenAmount = ethers.parseEther("1");
       const txData = {
         value: tokenAmount,
@@ -401,21 +401,96 @@ describe("TokenSale", function () {
       await buyer1.sendTransaction(txData);
       await ethers.provider.send("evm_setNextBlockTimestamp", [vestingEndTime + 1]);
       await ethers.provider.send("evm_mine");
-      await shop.withdrawEther();
-      const finalBalance = await ethers.provider.getBalance(owner.address);
+      await shop.connect(tokenOwner).withdrawEther();
+      const finalBalance = await ethers.provider.getBalance(tokenOwner.address);
       expect(finalBalance).to.be.gt(initialBalance);
     });
 
-    it("Should not allow owner to withdraw Ether before vesting end", async function () {
-      const { shop, buyer1 } = await loadFixture(deploy);
+    it("Should allow the owner to withdraw Ether after vesting end", async function () {
+      const { shop, buyer1, tokenOwner, buyer2 } = await loadFixture(deploy);
+      const vestingEndTime = 1735689599;
+      const initialBalance = await ethers.provider.getBalance(tokenOwner.address);
       const tokenAmount = ethers.parseEther("1");
       const txData = {
         value: tokenAmount,
         to: shop.target,
       };
       await buyer1.sendTransaction(txData);
-      await expect(shop.withdrawEther()).to.be.revertedWith(
+      await ethers.provider.send("evm_setNextBlockTimestamp", [vestingEndTime + 1]);
+      await ethers.provider.send("evm_mine");
+      await shop.connect(tokenOwner).withdrawEther();
+      const finalBalance = await ethers.provider.getBalance(tokenOwner.address);
+      expect(finalBalance).to.be.gt(initialBalance);
+    });
+
+    it("Should not allow to withdraw Ether after vesting end for not tokenOwner", async function () {
+      const { shop, buyer1, buyer2 } = await loadFixture(deploy);
+      const vestingEndTime = 1735689599;
+      const tokenAmount = ethers.parseEther("1");
+      const txData = {
+        value: tokenAmount,
+        to: shop.target,
+      };
+      await buyer1.sendTransaction(txData);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [vestingEndTime + 1]);
+      await ethers.provider.send("evm_mine");
+      await expect(shop.connect(buyer2).withdrawEther()).to.be.revertedWith(
+        "SolarGreen: You address is not tokenOwner address"
+      );
+    });
+
+    it("Should  allow owner to withdraw USDT after vesting end", async function () {
+      const { shop, usdt, buyer1, tokenOwner } = await loadFixture(deploy);
+      const vestingEndTime = 1735689599;
+      const tokenAmount = ethers.parseUnits("10", 18);
+      await usdt.transfer(buyer1.address, tokenAmount);
+      await usdt.connect(buyer1).approve(shop.target, tokenAmount);
+      await shop.connect(buyer1).convertUsdToTokens(tokenAmount);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [vestingEndTime + 1]);
+      await ethers.provider.send("evm_mine");
+      await shop.connect(tokenOwner).withdrawUSDT();
+      expect(await usdt.balanceOf(tokenOwner.address)).to.eq(tokenAmount);
+      expect(await usdt.balanceOf(shop.target)).to.eq(0);
+    });
+
+    it("Should not  allow  to withdraw USDT after vesting end for not owners", async function () {
+      const { shop, usdt, buyer1, buyer2 } = await loadFixture(deploy);
+      const vestingEndTime = 1735689599;
+      const tokenAmount = ethers.parseUnits("10", 18);
+      await usdt.transfer(buyer1.address, tokenAmount);
+      await usdt.connect(buyer1).approve(shop.target, tokenAmount);
+      await shop.connect(buyer1).convertUsdToTokens(tokenAmount);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [vestingEndTime + 1]);
+      await ethers.provider.send("evm_mine");
+      await expect(shop.connect(buyer2).withdrawUSDT()).to.be.revertedWith(
+        "SolarGreen: You address is not tokenOwner address"
+      );
+      expect(await usdt.balanceOf(buyer2.address)).to.eq(0);
+      expect(await usdt.balanceOf(shop.target)).to.eq(tokenAmount);
+    });
+
+    it("Should not allow owner to withdraw Ether before vesting end", async function () {
+      const { shop, buyer1, tokenOwner } = await loadFixture(deploy);
+      const tokenAmount = ethers.parseEther("1");
+      const txData = {
+        value: tokenAmount,
+        to: shop.target,
+      };
+      await buyer1.sendTransaction(txData);
+      await expect(shop.connect(tokenOwner).withdrawEther()).to.be.revertedWith(
         "TokenSale: You cant to take ether before vesting"
+      );
+    });
+
+    it("Should not allow owner to withdraw USDT before vesting end", async function () {
+      const { shop, usdt, buyer1, tokenOwner } = await loadFixture(deploy);
+      const tokenAmount = ethers.parseUnits("10", 18);
+
+      await usdt.transfer(buyer1.address, tokenAmount);
+      await usdt.connect(buyer1).approve(shop.target, tokenAmount);
+      await shop.connect(buyer1).convertUsdToTokens(tokenAmount);
+      await expect(shop.connect(tokenOwner).withdrawUSDT()).to.be.revertedWith(
+        "TokenSale: You cant to take usdt before vesting"
       );
     });
 

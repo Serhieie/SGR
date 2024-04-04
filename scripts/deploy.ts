@@ -3,9 +3,9 @@ const ethers = hre.ethers;
 import "dotenv/config";
 
 //sale
-// 0x9ebed8a606461829e3453c23b73a1c7152f9db49
+//0xb76598019CD18BaE365803EbBE020396aF441e92
 //token
-// 0xe697650af5f8f064c0d9f8d697cc219855bb9d71
+//0x18d4ed2aF7eB78Ed0eECDC05D5c89D4A260145E0
 
 async function main() {
   const tokenPriceInUsd = ethers.parseUnits("0.42", 18);

@@ -50,8 +50,8 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
     }
 
     function removeFromBlacklist(address account) public onlyRole(BLACKLISTER){
-        require(hasRole(BLACKLISTER, _msgSender()), "SolarGreen: You role must be admin to remove from blacklist ");
-        require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to blacklist");
+        require(hasRole(BLACKLISTER, _msgSender()), "SolarGreen: You role must be admin to remove from bl");
+        require(!hasRole(BLACKLISTER, account), "SolarGreen: Cannot add another blacklister to bl");
         _blacklist[account] = false;
         emit RemovedFromBlacklist(account);
     }
@@ -68,7 +68,7 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
 
     function burnTokensFrom(address from, uint256 amount) public   onlyRole(DEFAULT_ADMIN_ROLE){
         require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "SolarGreen: You role must be admin for this action!");
-        require(balanceOf(from) >= amount, "SolarGreen: You trying to Burn more than possible");
+        require(balanceOf(from) >= amount, "SolarGreen: You trying to Burn more tokens than possible");
         _burn(from, amount);
          emit SuccessBurn(from, amount);
     }
