@@ -454,5 +454,12 @@ describe("TokenSale", function () {
         .reverted;
       expect(await shop.vestingEndTime()).to.be.equal(vestingTime);
     });
+
+    it("should show usdt balance", async function () {
+      const { shop, usdt } = await loadFixture(deploy);
+      const usdtToMint = ethers.parseUnits("1", 18);
+      await usdt.transfer(shop.target, usdtToMint);
+      expect(await shop.stablecoinBalance()).to.equal(usdtToMint);
+    });
   });
 });

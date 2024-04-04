@@ -10,7 +10,6 @@ import "dotenv/config";
 async function main() {
   const tokenPriceInUsd = ethers.parseUnits("0.42", 18);
   const privateKey = process.env.PRIVATE_KEY;
-
   const tokenOwner = "0x62DDa5dB10849aDF9faa3C6F9E6aa15D22d2Eb8a";
   const wallet = new ethers.Wallet(privateKey, ethers.provider);
   const ethPriceFeed = "0x694AA1769357215DE4FAC081bf1f309aDC325306";
