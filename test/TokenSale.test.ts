@@ -20,7 +20,6 @@ describe("TokenSale", function () {
     await usdt.waitForDeployment();
 
     const shop: TokenSale = await TShopFactory.deploy(
-      owner,
       tokenOwner,
       eth.target,
       usdt.target,
@@ -128,7 +127,7 @@ describe("TokenSale", function () {
 
       await expect(
         shop.connect(buyer1).convertUsdToTokens(usdtForSend)
-      ).to.be.revertedWith("TokenSale: Sender is blacklisted");
+      ).to.be.revertedWith("TokenSale: You are blacklisted");
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
       expect(await shop.tokenBalanceOf(shop.target)).to.equal(initialTokenBalance);
@@ -251,7 +250,7 @@ describe("TokenSale", function () {
       };
       expect(await shop.tokenBalanceOf(buyer1.address)).to.eq(initialBalance);
       await expect(buyer1.sendTransaction(txData)).to.be.revertedWith(
-        "TokenSale: Sender is blacklisted"
+        "TokenSale: You are blacklisted"
       );
     });
 

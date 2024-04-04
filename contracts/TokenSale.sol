@@ -17,7 +17,7 @@ contract TokenSale is Ownable {
     uint256 public tokenPriceUsd;//~0.42$ * 10^18
     uint256 public vestingEndTime = 1735682399; //31 dec 2024 23:59:59
     uint256 public saleStartTime = 1710428399;// 14 of mrch 17:00
-    bool public saleStarted = false; //that contract was deployed before 14 of mrch :)
+    bool public saleStarted = false; //that contract was deployed before 14 of mrch
     uint public saleDuration =  5 weeks;
     uint256 public tokensForSale;
 
@@ -25,21 +25,23 @@ contract TokenSale is Ownable {
     event TokenPriceUpd(uint256 newPrice);
     event SaleDurationUpd(uint256 newDuration);
 
-    constructor(address saleOwner, address tokenOwner, address _priceFeed,
-     address _usdt, uint256 _tokenPrice ) Ownable(saleOwner) {
+    constructor( address tokenOwner, address _priceFeed,
+     address _usdt, uint256 _tokenPrice ) Ownable(msg.sender) {
+        require(tokenOwner != address(0), "TokenSale: tokenOwner address is invalid");
+        require(_priceFeed != address(0), "TokenSale: priceFeed address is invalid");
+        require(_usdt != address(0), "TokenSale: usdt address is invalid");
+        require(_tokenPrice >= 0, "TokenSale: invalid token price");
         ethFeed = AggregatorV3Interface(_priceFeed);
         stablecoin = IERC20(_usdt);
-        token = new SolarGreen(saleOwner, tokenOwner, address(this));
+        token = new SolarGreen(msg.sender, tokenOwner, address(this));
         tokensForSale = tokenSupply() / 2;
         tokenPriceUsd = _tokenPrice;
-        
-        // started  at 14 of mrch 17:00
         startSale();
     }
 
 
     modifier aucIsOpenAndNotBlacklisted() {
-        require(!isAccBlacklisted(msg.sender), "TokenSale: Sender is blacklisted");
+        require(!isAccBlacklisted(msg.sender), "TokenSale: You are blacklisted");
         require(block.timestamp >= saleStartTime &&
         block.timestamp <= saleStartTime + saleDuration, "TokenSale: Sale is not active");
         _;
@@ -74,12 +76,12 @@ contract TokenSale is Ownable {
     }
     
     function addAccToBlacklist(address account) external onlyBlacklister {
-        require(token.hasRole(token.BLACKLISTER(), msg.sender), "TokenSale: You are not blacklister");
+        require(token.hasRole(token.BLACKLISTER(), msg.sender), "TokenSale: Sender have no blacklister role");
         token.addToBlacklist(account);
     }
 
     function removeAccFromBlacklist(address account) external onlyBlacklister {
-        require(token.hasRole(token.BLACKLISTER(), msg.sender), "TokenSale: You are not blacklister");
+        require(token.hasRole(token.BLACKLISTER(), msg.sender), "TokenSale: Sender have no blacklister role");
         token.removeFromBlacklist(account);
     }
 
@@ -126,7 +128,6 @@ contract TokenSale is Ownable {
     }
 
     function calculateTokenAmount(bool eth, uint amount) internal view  returns(uint256){
-        //token amount calculation for eth or usdt
          return  eth ? (amount * getLastEthPriceInUsd()) / tokenPriceUsd :
         amount * 10 ** 18  / tokenPriceUsd;
     }

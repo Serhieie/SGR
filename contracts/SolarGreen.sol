@@ -20,7 +20,9 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
     constructor(address saleOwner, address initialOwner, address _shop)          
         ERC20("Solar Green", "SGR")
     {       
-        require(initialOwner != address(0), "SolarGreen: Invalid address");
+        require(initialOwner != address(0), "SolarGreen: You address is invalid");
+        require(saleOwner != address(0), "SolarGreen: You address is invalid");
+        require(_shop != address(0), "SolarGreen: You address is invalid");
         _mint(_shop, 50000000 * 10 ** decimals());
         _mint(address(this), 50000000 * 10 ** decimals());
         _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
@@ -66,7 +68,7 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
 
     function burnTokensFrom(address from, uint256 amount) public   onlyRole(DEFAULT_ADMIN_ROLE){
         require(hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "SolarGreen: You role must be admin for this action!");
-        require(balanceOf(from) >= amount, "SolarGreen: Burning more than possible");
+        require(balanceOf(from) >= amount, "SolarGreen: You trying to Burn more than possible");
         _burn(from, amount);
          emit SuccessBurn(from, amount);
     }

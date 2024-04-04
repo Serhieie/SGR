@@ -76,7 +76,7 @@ describe("SolarGreen", function () {
     const initialTokenBalance = await token.balanceOf(shop.address);
     const amountToBurn = initialTokenBalance + BigInt(1);
     await expect(token.burnTokensFrom(shop.address, amountToBurn)).to.be.revertedWith(
-      "SolarGreen: Burning more than possible"
+      "SolarGreen: You trying to Burn more than possible"
     );
     expect(await token.balanceOf(shop.address)).to.equal(initialTokenBalance);
   });
