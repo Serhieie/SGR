@@ -15,8 +15,7 @@ contract TokenSale is Ownable {
     SolarGreen public token;
     IERC20 public stablecoin;
     uint256 public limitPerWallet = 50000;
-    uint256 public tokenPriceUsd;//~0.42$ in wei * 10^18
-    uint256 public tokenPriceWei; 
+    uint256 public tokenPriceUsd;//~0.42$ * 10^18
     uint256 public vestingEndTime = 1735682399; //31 dec 2024 23:59:59
     uint256 public saleStartTime = 1710428399;// 14 of mrch 17:00
     bool public saleStarted = false; //that contract was deployed before 14 of mrch :)
@@ -31,12 +30,11 @@ contract TokenSale is Ownable {
         ethFeed = AggregatorV3Interface(_priceFeed);
         stablecoin = IERC20(_usdt);
         token = new SolarGreen(msg.sender, address(this));
-        tokensForSale = getTokenSupply() / 2;
+        tokensForSale = tokenSupply() / 2;
         tokenPriceUsd = _tokenPrice;
         
         // started  at 14 of mrch 17:00
         startSale();
-        updateTokenPrice();
     }
 
 
@@ -46,6 +44,7 @@ contract TokenSale is Ownable {
         block.timestamp <= saleStartTime + saleDuration, "TokenSale: Sale is not active");
         _;
     }
+    
 
     function startSale() public onlyOwner {
         require(block.timestamp >= saleStartTime, "TokenSale: Sale has not started yet");
@@ -54,7 +53,7 @@ contract TokenSale is Ownable {
 
     function updateTokensForSale(uint256 _newTokensForSale) external onlyOwner {
         require(tokensForSale + _newTokensForSale * 
-        10 ** 18 <= getTokenSupply(), "TokenSale: Not enough tokens");
+        10 ** 18 <= tokenSupply(), "TokenSale: Not enough tokens");
         if(_newTokensForSale <=0) {
              tokensForSale = 0;
         } else tokensForSale += _newTokensForSale * 10 ** 18;
@@ -63,6 +62,10 @@ contract TokenSale is Ownable {
 
     function tokenBalanceOf(address _address) public view  returns(uint) {
         return token.balanceOf(_address);
+    }
+
+    function stablecoinBalance() external view  returns(uint) {
+        return stablecoin.balanceOf(address(this));
     }
     
     function addAccToBlacklist(address account) external {
@@ -91,10 +94,10 @@ contract TokenSale is Ownable {
         vestingEndTime = newDate;
     }
 
-    function tokenBalance() public view returns (uint) {
+    function tokenBalance() internal view returns (uint) {
         return token.balanceOf(address(this));
     }
-    function getTokenSupply() internal view returns (uint) {
+    function tokenSupply() internal view returns (uint) {
         return token.totalSupply();
     }
 
@@ -107,25 +110,18 @@ contract TokenSale is Ownable {
         /*uint80 answeredInRound*/
     ) = ethFeed.latestRoundData();
     require(answer >= 0, "Invalid Ethereum price");
-
-    answer =  answer / 10 ** 8; 
+    answer =  (answer * 10 ** 10); 
     return uint(answer);
-    }
-
-    function updateTokenPrice() public returns(uint256){
-        tokenPriceWei  = tokenPriceUsd / getLastEthPriceInUsd();
-        return tokenPriceUsd;
     }
 
     function isSaleActive() internal view returns (bool) {
         return block.timestamp >= saleStartTime && block.timestamp <= saleStartTime + saleDuration;
     }
 
-    function calculateTokenAmount(bool eth, uint amount) internal returns(uint256){
+    function calculateTokenAmount(bool eth, uint amount) internal view  returns(uint256){
         //token amount calculation for eth or usdt
-        tokenPriceWei = tokenPriceUsd / getLastEthPriceInUsd();
-         return  eth ? (amount / tokenPriceWei) * 10 ** 18 :
-        (amount  * 10 ** 18) / (getLastEthPriceInUsd()  *  tokenPriceWei);
+         return  eth ? (amount * getLastEthPriceInUsd()) / tokenPriceUsd :
+        amount * 10 ** 18  / tokenPriceUsd;
     }
 
     //check all requires

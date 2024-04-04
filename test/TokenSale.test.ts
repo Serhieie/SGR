@@ -63,8 +63,6 @@ describe("TokenSale", function () {
     it("Token price must be 0.42 usd", async function () {
       const { shop } = await loadFixture(deploy);
       const tokenPrice = ethers.parseUnits("0.42", 18);
-      const ad = await shop.tokenPriceWei();
-      console.log(ad);
       expect(await shop.tokenPriceUsd()).to.equal(tokenPrice);
     });
 
@@ -85,12 +83,7 @@ describe("TokenSale", function () {
       const { buyer1, shop, usdt } = await loadFixture(deploy);
       const usdtForSend = ethers.parseUnits("10", 18);
       const tokenPriceInUsd = await shop.tokenPriceUsd();
-
-      const priceEthInUsd = BigInt(3630);
-      const tokenPrice = tokenPriceInUsd / priceEthInUsd;
-      const tokensToBuy =
-        (BigInt(usdtForSend) * BigInt(10 ** 18)) / (priceEthInUsd * tokenPrice);
-
+      const tokensToBuy = (usdtForSend * BigInt(10 ** 18)) / tokenPriceInUsd;
       await usdt.transfer(buyer1.address, usdtForSend);
       await usdt.connect(buyer1).approve(shop.target, usdtForSend);
       const tx = await shop.connect(buyer1).convertUsdToTokens(usdtForSend);
@@ -109,7 +102,7 @@ describe("TokenSale", function () {
       const { buyer1, shop, usdt, owner } = await loadFixture(deploy);
       await shop.updateSaleDuration(0);
       const usdtForSend = ethers.parseUnits("10", 18);
-      const initialTokenBalance = await shop.tokenBalance();
+      const initialTokenBalance = await shop.tokenBalanceOf(shop.target);
 
       await usdt.transfer(buyer1.address, usdtForSend);
       await usdt.approve(shop.target, usdtForSend);
@@ -119,14 +112,14 @@ describe("TokenSale", function () {
       ).to.be.revertedWith("TokenSale: Sale is not active");
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
-      expect(await shop.tokenBalance()).to.equal(initialTokenBalance);
+      expect(await shop.tokenBalanceOf(shop.target)).to.equal(initialTokenBalance);
     });
 
     it("Should prevent buying tokens with uUSDT if user in black list", async function () {
       const { buyer1, shop, usdt, owner } = await loadFixture(deploy);
       await shop.addAccToBlacklist(buyer1.address);
       const usdtForSend = ethers.parseUnits("10", 18);
-      const initialTokenBalance = await shop.tokenBalance();
+      const initialTokenBalance = await shop.tokenBalanceOf(shop.target);
 
       await usdt.connect(owner).transfer(buyer1.address, usdtForSend);
       await usdt.approve(shop.target, usdtForSend);
@@ -136,14 +129,14 @@ describe("TokenSale", function () {
       ).to.be.revertedWith("TokenSale: Sender is blacklisted");
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
-      expect(await shop.tokenBalance()).to.equal(initialTokenBalance);
+      expect(await shop.tokenBalanceOf(shop.target)).to.equal(initialTokenBalance);
     });
 
     it("Should prevent buying tokens with uUSDT if not enough aproved to sell tokens", async function () {
       const { buyer1, shop, usdt, owner } = await loadFixture(deploy);
       await shop.updateTokensForSale(0);
       const usdtForSend = ethers.parseUnits("10", 18);
-      const initialTokenBalance = await shop.tokenBalance();
+      const initialTokenBalance = await shop.tokenBalanceOf(shop.target);
 
       await usdt.transfer(buyer1.address, usdtForSend);
       await usdt.approve(shop.target, usdtForSend);
@@ -153,15 +146,15 @@ describe("TokenSale", function () {
       ).to.be.revertedWith("TokenSale: Sold out!");
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
-      expect(await shop.tokenBalance()).to.equal(initialTokenBalance);
+      expect(await shop.tokenBalanceOf(shop.target)).to.equal(initialTokenBalance);
     });
 
     it("Should prevent buying tokens with uUSDT if not enough tokens in shop", async function () {
       const { buyer1, shop, usdt, owner, sgr } = await loadFixture(deploy);
-      const totalTokensToBurn = await shop.tokenBalance();
+      const totalTokensToBurn = await shop.tokenBalanceOf(shop.target);
       await sgr.burnTokensFrom(shop.target, totalTokensToBurn);
       const usdtForSend = ethers.parseUnits("10", 18);
-      const initialTokenBalance = await shop.tokenBalance();
+      const initialTokenBalance = await shop.tokenBalanceOf(shop.target);
 
       await usdt.transfer(buyer1.address, usdtForSend);
       await usdt.approve(shop.target, usdtForSend);
@@ -171,14 +164,13 @@ describe("TokenSale", function () {
       );
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
-      expect(await shop.tokenBalance()).to.equal(initialTokenBalance);
+      expect(await shop.tokenBalanceOf(shop.target)).to.equal(initialTokenBalance);
     });
 
     it("Should prevent buying tokens with uUSDT if reached personal limit 50k", async function () {
       const { buyer1, shop, usdt } = await loadFixture(deploy);
-      const usdtForSend = ethers.parseUnits("1000000", 18);
-      const initialTokenBalance = await shop.tokenBalance();
-
+      const usdtForSend = ethers.parseUnits("100000", 18);
+      const initialTokenBalance = await shop.tokenBalanceOf(shop.target);
       await usdt.transfer(buyer1.address, usdtForSend);
       await usdt.approve(shop.target, usdtForSend);
 
@@ -187,7 +179,7 @@ describe("TokenSale", function () {
       ).to.be.revertedWith("TokenSale: Allowed 50k tokens per wallet");
       expect(await usdt.balanceOf(buyer1.address)).to.equal(usdtForSend);
       expect(await usdt.balanceOf(shop.target)).to.equal(0);
-      expect(await shop.tokenBalance()).to.equal(initialTokenBalance);
+      expect(await shop.tokenBalanceOf(shop.target)).to.equal(initialTokenBalance);
     });
 
     it("Should prevent buying tokens with uUSDT if reached personal limit 50k and send it somewhere", async function () {
@@ -206,11 +198,9 @@ describe("TokenSale", function () {
       expect(await usdt.balanceOf(shop.target)).to.equal(usdtForSend);
 
       //check vesting
+      const decimals = ethers.parseUnits("1", 18);
       const tokenPriceInUsd = await shop.tokenPriceUsd();
-      const priceEthInUsd = BigInt(3630);
-      const tokenPrice = tokenPriceInUsd / priceEthInUsd;
-      const tokensToBuy =
-        (BigInt(usdtForSend) * BigInt(10 ** 18)) / (priceEthInUsd * tokenPrice);
+      const tokensToBuy = (usdtForSend * decimals) / tokenPriceInUsd;
       expect(await shop.vesting(buyer1.address)).to.equal(tokensToBuy);
     });
 
@@ -218,9 +208,8 @@ describe("TokenSale", function () {
       const { buyer1, shop } = await loadFixture(deploy);
       const sendedEth = ethers.parseEther("1");
       const tokenPriceInUsd = await shop.tokenPriceUsd();
-      const priceEthInUsd = BigInt(3630);
-      const tokenPrice = tokenPriceInUsd / priceEthInUsd;
-      const tokenAmount = (sendedEth / tokenPrice) * BigInt(10 ** 18);
+      const priceEthInUsd = ethers.parseUnits("3630", 18);
+      const tokenAmount = (sendedEth * priceEthInUsd) / tokenPriceInUsd;
       const txData = {
         value: sendedEth,
         to: shop.target,
@@ -282,7 +271,7 @@ describe("TokenSale", function () {
     it("Should prevent buying tokens if not enough tokens in shop", async function () {
       const { shop, buyer1, owner, sgr } = await loadFixture(deploy);
       const initialBalance = await shop.tokenBalanceOf(buyer1.address);
-      const totalTokensToBurn = await shop.tokenBalance();
+      const totalTokensToBurn = await shop.tokenBalanceOf(shop.target);
       await sgr.burnTokensFrom(shop.target, totalTokensToBurn);
       const tokenAmount = ethers.parseEther("4");
       const txData = {
@@ -372,9 +361,8 @@ describe("TokenSale", function () {
       const vestingEndTime = 1735689599;
       const sendedEth = ethers.parseEther("1");
       const tokenPriceInUsd = await shop.tokenPriceUsd();
-      const priceEthInUsd = BigInt(3630);
-      const tokenPrice = tokenPriceInUsd / priceEthInUsd;
-      const tokenAmount = (sendedEth / tokenPrice) * BigInt(10 ** 18);
+      const priceEthInUsd = ethers.parseUnits("3630", 18);
+      const tokenAmount = (sendedEth * priceEthInUsd) / tokenPriceInUsd;
 
       const txData = {
         value: sendedEth,
