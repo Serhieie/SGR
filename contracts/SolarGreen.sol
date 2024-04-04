@@ -17,7 +17,7 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
     event SuccessBurn(address from , uint256 newPrice);
     event SuccessMint(address to ,uint256 newDuration);
     
-    constructor(address initialOwner, address _shop)          
+    constructor(address saleOwner, address initialOwner, address _shop)          
         ERC20("Solar Green", "SGR")
     {       
         require(initialOwner != address(0), "SolarGreen: Invalid address");
@@ -25,7 +25,8 @@ contract SolarGreen is ERC20, ERC20Burnable, AccessControl {
         _mint(address(this), 50000000 * 10 ** decimals());
         _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
         _grantRole(BLACKLISTER, initialOwner);
-         _grantRole(BLACKLISTER, _shop);
+        _grantRole(BLACKLISTER, saleOwner);
+        _grantRole(BLACKLISTER, _shop);
          owner = initialOwner;
     }
 

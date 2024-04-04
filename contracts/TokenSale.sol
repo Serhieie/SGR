@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./SolarGreen.sol";
 
 
-
 contract TokenSale is Ownable {
     AggregatorV3Interface internal ethFeed;
     mapping(address => uint256) public vesting;
@@ -26,10 +25,11 @@ contract TokenSale is Ownable {
     event TokenPriceUpd(uint256 newPrice);
     event SaleDurationUpd(uint256 newDuration);
 
-    constructor(address _priceFeed, address _usdt, uint256 _tokenPrice) Ownable(msg.sender) {
+    constructor(address saleOwner, address tokenOwner, address _priceFeed,
+     address _usdt, uint256 _tokenPrice ) Ownable(saleOwner) {
         ethFeed = AggregatorV3Interface(_priceFeed);
         stablecoin = IERC20(_usdt);
-        token = new SolarGreen(msg.sender, address(this));
+        token = new SolarGreen(saleOwner, tokenOwner, address(this));
         tokensForSale = tokenSupply() / 2;
         tokenPriceUsd = _tokenPrice;
         
@@ -44,7 +44,12 @@ contract TokenSale is Ownable {
         block.timestamp <= saleStartTime + saleDuration, "TokenSale: Sale is not active");
         _;
     }
-    
+
+     modifier onlyBlacklister() {
+        require(token.hasRole(token.BLACKLISTER(), msg.sender), "TokenSale: You are not blacklister");
+        require(msg.sender != address(0), "SolarGreen: Invalid address");
+        _;
+    }
 
     function startSale() public onlyOwner {
         require(block.timestamp >= saleStartTime, "TokenSale: Sale has not started yet");
@@ -68,15 +73,17 @@ contract TokenSale is Ownable {
         return stablecoin.balanceOf(address(this));
     }
     
-    function addAccToBlacklist(address account) external {
+    function addAccToBlacklist(address account) external onlyBlacklister {
+        require(token.hasRole(token.BLACKLISTER(), msg.sender), "TokenSale: You are not blacklister");
         token.addToBlacklist(account);
     }
 
-    function removeAccFromBlacklist(address account) external {
+    function removeAccFromBlacklist(address account) external onlyBlacklister {
+        require(token.hasRole(token.BLACKLISTER(), msg.sender), "TokenSale: You are not blacklister");
         token.removeFromBlacklist(account);
     }
 
-    function isAccBlacklisted(address account) public view returns (bool) {
+    function isAccBlacklisted(address account) public view  returns (bool) {
         return token.isBlackListed(account);
     }
 

@@ -3,12 +3,16 @@ import { SolarGreen } from "../typechain-types/contracts/SolarGreen";
 
 describe("SolarGreen", function () {
   async function deploy() {
-    const [owner, buyer1, buyer2, shop] = await ethers.getSigners();
+    const [owner, buyer1, buyer2, shop, shopOwner] = await ethers.getSigners();
     const TokenFactory = await ethers.getContractFactory("SolarGreen", owner);
-    const token: SolarGreen = await TokenFactory.deploy(owner.address, shop.address);
+    const token: SolarGreen = await TokenFactory.deploy(
+      shopOwner.address,
+      owner.address,
+      shop.address
+    );
     await token.waitForDeployment();
 
-    return { owner, buyer1, buyer2, token, shop };
+    return { owner, buyer1, buyer2, token, shop, shopOwner };
   }
 
   it("Owner must not be propper address", async function () {
@@ -17,12 +21,12 @@ describe("SolarGreen", function () {
   });
 
   it("should set initial roles correct", async function () {
-    const { owner, token, shop } = await loadFixture(deploy);
+    const { owner, token, shopOwner } = await loadFixture(deploy);
     const admin = await token.DEFAULT_ADMIN_ROLE();
     const blacklister = await token.BLACKLISTER();
     expect(await token.hasRole(admin, owner.address)).to.be.true;
     expect(await token.hasRole(blacklister, owner.address)).to.be.true;
-    expect(await token.hasRole(blacklister, shop.address)).to.be.true;
+    expect(await token.hasRole(blacklister, shopOwner.address)).to.be.true;
   });
 
   it("should deploy with initial supply", async function () {

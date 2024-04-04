@@ -6,7 +6,7 @@ import { SolarGreen } from "../typechain-types";
 describe("TokenSale", function () {
   async function deploy() {
     const tokenPriceInUsd = ethers.parseUnits("0.42", 18);
-    const [owner, buyer1, buyer2] = await ethers.getSigners();
+    const [owner, tokenOwner, buyer1, buyer2] = await ethers.getSigners();
     const TShopFactory = await ethers.getContractFactory("TokenSale", owner);
 
     //eth price 3630 usd
@@ -20,6 +20,8 @@ describe("TokenSale", function () {
     await usdt.waitForDeployment();
 
     const shop: TokenSale = await TShopFactory.deploy(
+      owner,
+      tokenOwner,
       eth.target,
       usdt.target,
       tokenPriceInUsd
@@ -29,7 +31,7 @@ describe("TokenSale", function () {
     const sgrAddress = await shop.token();
     const sgr: SolarGreen = await ethers.getContractAt("SolarGreen", sgrAddress, owner);
 
-    return { owner, buyer1, buyer2, shop, usdt, sgr };
+    return { owner, buyer1, buyer2, shop, usdt, sgr, tokenOwner };
   }
 
   describe("Deployment", function () {
@@ -99,7 +101,7 @@ describe("TokenSale", function () {
     });
 
     it("Should prevent buying tokens with uUSDT if listing is not active", async function () {
-      const { buyer1, shop, usdt, owner } = await loadFixture(deploy);
+      const { buyer1, shop, usdt } = await loadFixture(deploy);
       await shop.updateSaleDuration(0);
       const usdtForSend = ethers.parseUnits("10", 18);
       const initialTokenBalance = await shop.tokenBalanceOf(shop.target);
@@ -116,7 +118,7 @@ describe("TokenSale", function () {
     });
 
     it("Should prevent buying tokens with uUSDT if user in black list", async function () {
-      const { buyer1, shop, usdt, owner } = await loadFixture(deploy);
+      const { buyer1, shop, usdt, owner, tokenOwner } = await loadFixture(deploy);
       await shop.addAccToBlacklist(buyer1.address);
       const usdtForSend = ethers.parseUnits("10", 18);
       const initialTokenBalance = await shop.tokenBalanceOf(shop.target);
@@ -133,7 +135,7 @@ describe("TokenSale", function () {
     });
 
     it("Should prevent buying tokens with uUSDT if not enough aproved to sell tokens", async function () {
-      const { buyer1, shop, usdt, owner } = await loadFixture(deploy);
+      const { buyer1, shop, usdt } = await loadFixture(deploy);
       await shop.updateTokensForSale(0);
       const usdtForSend = ethers.parseUnits("10", 18);
       const initialTokenBalance = await shop.tokenBalanceOf(shop.target);
@@ -150,9 +152,9 @@ describe("TokenSale", function () {
     });
 
     it("Should prevent buying tokens with uUSDT if not enough tokens in shop", async function () {
-      const { buyer1, shop, usdt, owner, sgr } = await loadFixture(deploy);
+      const { buyer1, shop, usdt, tokenOwner, sgr } = await loadFixture(deploy);
       const totalTokensToBurn = await shop.tokenBalanceOf(shop.target);
-      await sgr.burnTokensFrom(shop.target, totalTokensToBurn);
+      await sgr.connect(tokenOwner).burnTokensFrom(shop.target, totalTokensToBurn);
       const usdtForSend = ethers.parseUnits("10", 18);
       const initialTokenBalance = await shop.tokenBalanceOf(shop.target);
 
@@ -239,8 +241,8 @@ describe("TokenSale", function () {
     });
 
     it("Should prevent buying tokens if sender is blacklisted", async function () {
-      const { shop, buyer1 } = await loadFixture(deploy);
-      await shop.addAccToBlacklist(buyer1.address);
+      const { shop, buyer1, owner } = await loadFixture(deploy);
+      await shop.connect(owner).addAccToBlacklist(buyer1.address);
       const initialBalance = await shop.tokenBalanceOf(buyer1.address);
       const tokenAmount = ethers.parseEther("1");
       const txData = {
@@ -269,10 +271,10 @@ describe("TokenSale", function () {
     });
 
     it("Should prevent buying tokens if not enough tokens in shop", async function () {
-      const { shop, buyer1, owner, sgr } = await loadFixture(deploy);
+      const { shop, buyer1, tokenOwner, sgr } = await loadFixture(deploy);
       const initialBalance = await shop.tokenBalanceOf(buyer1.address);
       const totalTokensToBurn = await shop.tokenBalanceOf(shop.target);
-      await sgr.burnTokensFrom(shop.target, totalTokensToBurn);
+      await sgr.connect(tokenOwner).burnTokensFrom(shop.target, totalTokensToBurn);
       const tokenAmount = ethers.parseEther("4");
       const txData = {
         value: tokenAmount,
@@ -301,8 +303,9 @@ describe("TokenSale", function () {
     });
 
     it("Should prevent buying because of personal limit even if wallet will send his tokens to another wallet and buy again", async function () {
-      const { shop, buyer1, sgr } = await loadFixture(deploy);
+      const { shop, buyer1, sgr, tokenOwner } = await loadFixture(deploy);
       const tokenAmount = ethers.parseEther("4");
+
       const txData = {
         value: tokenAmount,
         to: shop.target,
@@ -310,7 +313,7 @@ describe("TokenSale", function () {
 
       await buyer1.sendTransaction(txData);
       const tokenBalance = await shop.tokenBalanceOf(buyer1.address);
-      await sgr.burnTokensFrom(buyer1, tokenBalance);
+      await sgr.connect(tokenOwner).burnTokensFrom(buyer1, tokenBalance);
 
       await expect(buyer1.sendTransaction(txData)).to.be.revertedWith(
         "TokenSale: Allowed 50k tokens per wallet"
@@ -417,12 +420,25 @@ describe("TokenSale", function () {
       );
     });
 
-    it("should allow add and remove from bl", async function () {
-      const { shop, buyer1 } = await loadFixture(deploy);
-      await shop.addAccToBlacklist(buyer1);
-      expect(await shop.isAccBlacklisted(buyer1)).to.equal(true);
-      await shop.removeAccFromBlacklist(buyer1);
-      expect(await shop.isAccBlacklisted(buyer1)).to.equal(false);
+    it("should allow add and remove from bl if you have blacklisterRole", async function () {
+      const { shop, buyer1, sgr, buyer2, tokenOwner } = await loadFixture(deploy);
+      await sgr.connect(tokenOwner).grantBlRole(buyer2.address);
+      await shop.connect(buyer2).addAccToBlacklist(buyer1.address);
+      expect(await shop.isAccBlacklisted(buyer1.address)).to.equal(true);
+      await shop.connect(buyer2).removeAccFromBlacklist(buyer1.address);
+      expect(await shop.isAccBlacklisted(buyer1.address)).to.equal(false);
+    });
+
+    it("should not allow add and remove from bl if have no blacklister role", async function () {
+      const { shop, buyer1, buyer2 } = await loadFixture(deploy);
+      await expect(shop.connect(buyer1).addAccToBlacklist(buyer2.address)).revertedWith(
+        "TokenSale: You are not blacklister"
+      );
+
+      await shop.addAccToBlacklist(buyer2.address);
+      await expect(
+        shop.connect(buyer1).removeAccFromBlacklist(buyer2.address)
+      ).revertedWith("TokenSale: You are not blacklister");
     });
 
     it("should allow the owner to change vesting time", async function () {
