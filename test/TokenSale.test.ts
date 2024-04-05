@@ -1,4 +1,4 @@
-import { loadFixture, ethers, expect } from "./setup";
+import { loadFixture, ethers, expect, moment } from "./setup";
 import { TokenSale } from "../typechain-types/contracts/TokenSale";
 import { UsdtForTest } from "../typechain-types/contracts/test/UsdtForTest";
 import { SolarGreen } from "../typechain-types";
@@ -42,17 +42,19 @@ describe("TokenSale", function () {
     it("Should set start time 14 of mrch 17:00", async function () {
       const { shop } = await loadFixture(deploy);
       const unixTimestamp = await shop.saleStartTime();
-      const expectedDate = new Date(Number(unixTimestamp) * 1000);
-      const expectedDateString = expectedDate.toLocaleString();
-      expect(expectedDateString).to.equal("14.03.2024, 16:59:59");
+      const expectedDate = moment
+        .unix(Number(unixTimestamp))
+        .format("DD.MM.YYYY, HH:mm:ss");
+      expect(expectedDate).to.equal("14.03.2024, 16:59:59");
     });
 
     it("Should set vesting end time at 31 dec 2024 23:59:59", async function () {
       const { shop } = await loadFixture(deploy);
       const unixTimestamp = await shop.vestingEndTime();
-      const expectedDate = new Date(Number(unixTimestamp) * 1000);
-      const expectedDateString = expectedDate.toLocaleString();
-      expect(expectedDateString).to.equal("31.12.2024, 23:59:59");
+      const expectedDate = moment
+        .unix(Number(unixTimestamp))
+        .format("DD.MM.YYYY, HH:mm:ss");
+      expect(expectedDate).to.equal("31.12.2024, 23:59:59");
     });
 
     it("Should deploy test contract with some balance for test", async function () {

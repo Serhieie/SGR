@@ -13,6 +13,7 @@
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-verify": "^2.0.5",
     "hardhat": "^2.22.2",
+    "moment": "^2.30.1",
     "solidity-coverage": "^0.8.11"
   },
   "dependencies": {

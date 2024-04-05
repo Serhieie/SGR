@@ -27,6 +27,7 @@ const config: HardhatUserConfig = {
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
       chainId: 11155111,
     },
+    hardhat: {},
   },
   sourcify: {
     enabled: true,
